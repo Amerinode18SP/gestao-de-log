@@ -1,0 +1,49 @@
+require('dotenv').config()
+const express = require('express')
+const cors    = require('cors')
+
+const ordensRoutes    = require('./routes/ordens')
+const veiculosRoutes  = require('./routes/veiculos')
+const fornecedoresRoutes = require('./routes/fornecedores')
+const importRoutes    = require('./routes/importar')
+const dashboardRoutes = require('./routes/dashboard')
+
+const app  = express()
+const PORT = process.env.PORT || 3000
+
+// ── Middlewares ──────────────────────────────────────────────────────────────
+app.use(cors({
+  origin: process.env.FRONTEND_URL || '*',
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}))
+app.use(express.json({ limit: '10mb' }))
+app.use(express.urlencoded({ extended: true }))
+
+// ── Rotas ────────────────────────────────────────────────────────────────────
+app.use('/api/ordens',       ordensRoutes)
+app.use('/api/veiculos',     veiculosRoutes)
+app.use('/api/fornecedores', fornecedoresRoutes)
+app.use('/api/importar',     importRoutes)
+app.use('/api/dashboard',    dashboardRoutes)
+
+// ── Health check ─────────────────────────────────────────────────────────────
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok', timestamp: new Date().toISOString() })
+})
+
+// ── 404 ──────────────────────────────────────────────────────────────────────
+app.use((req, res) => {
+  res.status(404).json({ error: 'Rota não encontrada' })
+})
+
+// ── Error handler ────────────────────────────────────────────────────────────
+app.use((err, req, res, next) => {
+  console.error('Erro interno:', err)
+  res.status(500).json({ error: 'Erro interno do servidor', detail: err.message })
+})
+
+app.listen(PORT, () => {
+  console.log(`✅  API rodando em http://localhost:${PORT}`)
+  console.log(`📋  Ambiente: ${process.env.NODE_ENV || 'development'}`)
+})

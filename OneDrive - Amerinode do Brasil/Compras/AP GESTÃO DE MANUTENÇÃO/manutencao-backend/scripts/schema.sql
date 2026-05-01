@@ -1,0 +1,86 @@
+-- ============================================================
+--  SCHEMA — Sistema de Gestão de Manutenção Veicular
+--  Execute este SQL no Supabase: SQL Editor → New query → Run
+-- ============================================================
+
+-- ── Extensão UUID ────────────────────────────────────────────
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+-- ── Tabela: veiculos ─────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS veiculos (
+  id               UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  placa            VARCHAR(10)  NOT NULL UNIQUE,
+  localidade       VARCHAR(100) NOT NULL,
+  km_atual         INTEGER,
+  proxima_revisao  DATE,
+  created_at       TIMESTAMPTZ  DEFAULT NOW(),
+  updated_at       TIMESTAMPTZ  DEFAULT NOW()
+);
+
+-- ── Tabela: fornecedores ─────────────────────────────────────
+CREATE TABLE IF NOT EXISTS fornecedores (
+  id           UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  razao_social VARCHAR(200) NOT NULL,
+  cnpj         VARCHAR(14)  NOT NULL UNIQUE,
+  created_at   TIMESTAMPTZ  DEFAULT NOW(),
+  updated_at   TIMESTAMPTZ  DEFAULT NOW()
+);
+
+-- ── Tabela: ordens ───────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS ordens (
+  id             UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  veiculo_id     UUID REFERENCES veiculos(id)    ON DELETE SET NULL,
+  fornecedor_id  UUID REFERENCES fornecedores(id) ON DELETE SET NULL,
+  supervisor     VARCHAR(100) NOT NULL,
+  num_ordem      VARCHAR(50),
+  link_ordem     TEXT,
+  nota_fiscal    VARCHAR(50)  NOT NULL,
+  data_ordem     DATE         NOT NULL,
+  categoria      VARCHAR(20)  NOT NULL CHECK (categoria IN ('Serviço','Produto')),
+  item           TEXT         NOT NULL,
+  valor_item     NUMERIC(12,2) DEFAULT 0,
+  quantidade     INTEGER       DEFAULT 1,
+  valor_total    NUMERIC(12,2) DEFAULT 0,
+  status         VARCHAR(20)   DEFAULT 'Pendente'
+                 CHECK (status IN ('Pendente','Em Preparação','Concluído','Cancelado')),
+  origem         VARCHAR(20)   DEFAULT 'Manual'
+                 CHECK (origem IN ('Manual','Excel','Cotabox')),
+  cotabox_id     VARCHAR(50),
+  created_at     TIMESTAMPTZ   DEFAULT NOW(),
+  updated_at     TIMESTAMPTZ   DEFAULT NOW()
+);
+
+-- ── Índices ──────────────────────────────────────────────────
+CREATE INDEX IF NOT EXISTS idx_ordens_veiculo    ON ordens(veiculo_id);
+CREATE INDEX IF NOT EXISTS idx_ordens_fornecedor ON ordens(fornecedor_id);
+CREATE INDEX IF NOT EXISTS idx_ordens_status     ON ordens(status);
+CREATE INDEX IF NOT EXISTS idx_ordens_data       ON ordens(data_ordem);
+CREATE INDEX IF NOT EXISTS idx_veiculos_placa    ON veiculos(placa);
+CREATE INDEX IF NOT EXISTS idx_fornecedores_cnpj ON fornecedores(cnpj);
+
+-- ── Trigger: updated_at automático ───────────────────────────
+CREATE OR REPLACE FUNCTION set_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE TRIGGER trg_veiculos_updated_at
+  BEFORE UPDATE ON veiculos
+  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+CREATE OR REPLACE TRIGGER trg_fornecedores_updated_at
+  BEFORE UPDATE ON fornecedores
+  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+CREATE OR REPLACE TRIGGER trg_ordens_updated_at
+  BEFORE UPDATE ON ordens
+  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+-- ── Row Level Security (RLS) — recomendado para produção ─────
+-- Descomente abaixo quando adicionar autenticação de usuários:
+-- ALTER TABLE veiculos    ENABLE ROW LEVEL SECURITY;
+-- ALTER TABLE fornecedores ENABLE ROW LEVEL SECURITY;
+-- ALTER TABLE ordens      ENABLE ROW LEVEL SECURITY;

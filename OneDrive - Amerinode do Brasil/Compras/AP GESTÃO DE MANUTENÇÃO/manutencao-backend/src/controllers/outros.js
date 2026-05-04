@@ -39,7 +39,22 @@ async function revisoesPendentes(req, res) {
 
 // ── FORNECEDORES ─────────────────────────────────────────────────────────────
 
-async function listarFornecedores(req, res) {
+async function atualizarVeiculo(req, res) {
+  try {
+    const { data, error } = await supabase
+      .from('veiculos')
+      .update({ ...req.body, updated_at: new Date().toISOString() })
+      .eq('id', req.params.id)
+      .select()
+      .single()
+    if (error) throw error
+    res.json(data)
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+}
+
+
   try {
     const { data, error } = await supabase
       .from('fornecedores')
@@ -109,7 +124,7 @@ async function resumo(req, res) {
 }
 
 module.exports = {
-  listarVeiculos, revisoesPendentes,
+  listarVeiculos, revisoesPendentes, atualizarVeiculo,
   listarFornecedores,
   resumo
 }

@@ -1,6 +1,7 @@
 require('dotenv').config()
 const express = require('express')
 const cors    = require('cors')
+const path    = require('path')
 
 const ordensRoutes    = require('./routes/ordens')
 const veiculosRoutes  = require('./routes/veiculos')
@@ -19,6 +20,10 @@ app.use(cors({
 }))
 app.use(express.json({ limit: '10mb' }))
 app.use(express.urlencoded({ extended: true }))
+
+// ── Frontend estático ────────────────────────────────────────────────────────
+// Serve os arquivos da pasta public/ (index.html como página inicial)
+app.use(express.static(path.join(__dirname, '..', 'public')))
 
 // ── Rotas ────────────────────────────────────────────────────────────────────
 app.use('/api/ordens',       ordensRoutes)

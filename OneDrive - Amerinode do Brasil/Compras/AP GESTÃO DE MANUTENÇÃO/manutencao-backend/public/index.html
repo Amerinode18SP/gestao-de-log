@@ -1,0 +1,1443 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sistema de Gestão de Manutenção Veicular</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Arial,sans-serif;font-size:14px;color:#222;background:#F0F4F9;min-height:100vh}
+
+/* ── AUTH PAGES ─────────────────────────────────────────────── */
+.auth-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#1E3A5F 0%,#2E6DA4 100%)}
+.auth-card{background:#fff;border-radius:16px;padding:40px;width:100%;max-width:420px;box-shadow:0 20px 60px rgba(0,0,0,.2)}
+.auth-logo{text-align:center;margin-bottom:28px}
+.auth-logo h1{font-size:20px;font-weight:600;color:#1E3A5F;margin-top:8px}
+.auth-logo p{font-size:13px;color:#888;margin-top:4px}
+.auth-tabs{display:flex;background:#F5F5F5;border-radius:8px;padding:4px;margin-bottom:24px}
+.auth-tab{flex:1;text-align:center;padding:8px;border-radius:6px;cursor:pointer;font-size:13px;color:#666;transition:all .2s}
+.auth-tab.active{background:#fff;color:#1E3A5F;font-weight:500;box-shadow:0 1px 4px rgba(0,0,0,.1)}
+.auth-field{margin-bottom:16px}
+.auth-field label{display:block;font-size:12px;font-weight:500;color:#555;margin-bottom:6px}
+.auth-field input,.auth-field select{width:100%;padding:10px 12px;border:1px solid #DDD;border-radius:8px;font-size:13px;transition:border .2s}
+.auth-field input:focus,.auth-field select:focus{outline:none;border-color:#378ADD;box-shadow:0 0 0 3px rgba(55,138,221,.12)}
+.auth-btn{width:100%;padding:12px;background:#378ADD;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:500;cursor:pointer;margin-top:8px;transition:background .2s}
+.auth-btn:hover{background:#185FA5}
+.auth-btn:disabled{background:#AAA;cursor:not-allowed}
+.auth-error{background:#FCEBEB;color:#791F1F;padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:14px;display:none}
+.auth-success{background:#EAF3DE;color:#27500A;padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:14px;display:none}
+.auth-link{text-align:center;font-size:12px;color:#888;margin-top:16px}
+.auth-link a{color:#378ADD;cursor:pointer;text-decoration:none}
+
+/* ── MAIN APP ───────────────────────────────────────────────── */
+.app{display:none;flex;min-height:100vh}
+.app.visible{display:flex}
+.sidebar{width:220px;background:#fff;border-right:1px solid #E0E0E0;padding:16px 0;flex-shrink:0;display:flex;flex-direction:column}
+.sidebar-logo{padding:0 16px 16px;border-bottom:1px solid #E0E0E0;margin-bottom:8px}
+.sidebar-logo p{font-size:14px;font-weight:600;color:#1E3A5F;margin-top:2px}
+.sidebar-logo span{font-size:11px;color:#888;text-transform:uppercase;letter-spacing:.05em}
+.user-info{margin:8px 16px 8px;padding:10px 12px;background:#F0F4F9;border-radius:8px}
+.user-info .user-name{font-size:13px;font-weight:500;color:#1E3A5F}
+.user-info .user-role{font-size:11px;margin-top:2px}
+.role-admin{color:#27500A;background:#EAF3DE;padding:2px 6px;border-radius:10px;font-size:10px;font-weight:500}
+.role-viewer{color:#633806;background:#FAEEDA;padding:2px 6px;border-radius:10px;font-size:10px;font-weight:500}
+.role-select{padding:4px 8px;border:1px solid #DDD;border-radius:6px;font-size:12px;background:#fff;cursor:pointer}
+.role-select:focus{outline:none;border-color:#378ADD}
+.role-select:disabled{opacity:.6;cursor:wait}
+.nav-item{display:flex;align-items:center;gap:10px;padding:9px 16px;cursor:pointer;font-size:13px;color:#666;border-left:2px solid transparent}
+.nav-item:hover{background:#F5F5F5;color:#222}
+.nav-item.active{background:#E6F1FB;color:#0C447C;border-left-color:#378ADD;font-weight:500}
+.nav-item.disabled{opacity:.4;cursor:not-allowed;pointer-events:none}
+.nav-sep{height:1px;background:#EEE;margin:8px 0}
+.sidebar-bottom{margin-top:auto;padding:8px 16px}
+.logout-btn{width:100%;padding:8px;border:1px solid #DDD;background:#fff;border-radius:8px;font-size:13px;color:#666;cursor:pointer;text-align:center}
+.logout-btn:hover{background:#FCEBEB;color:#791F1F;border-color:#F5BBBB}
+.main{flex:1;overflow:auto}
+.topbar{background:#fff;border-bottom:1px solid #E0E0E0;padding:13px 24px;display:flex;align-items:center;justify-content:space-between}
+.topbar h1{font-size:15px;font-weight:500}
+.api-badge{font-size:11px;padding:3px 8px;border-radius:10px;background:#EAF3DE;color:#27500A;font-weight:500}
+.btn{padding:7px 14px;border-radius:8px;border:1px solid #DDD;background:#fff;color:#222;font-size:13px;cursor:pointer}
+.btn:hover{background:#F5F5F5}
+.btn-primary{background:#378ADD;color:#fff;border-color:#185FA5}
+.btn-primary:hover{background:#185FA5}
+.btn-danger{background:#FCEBEB;color:#791F1F;border-color:#F5BBBB}
+.content{padding:20px 24px}
+.page{display:none}.page.active{display:block}
+.card{background:#fff;border:1px solid #E0E0E0;border-radius:12px;padding:20px;margin-bottom:16px}
+.card-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid #E0E0E0}
+.card-title{font-size:14px;font-weight:500}
+.stats-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px}
+.stat-card{background:#F5F5F5;border-radius:8px;padding:14px}
+.stat-label{font-size:12px;color:#666;margin-bottom:4px}
+.stat-value{font-size:22px;font-weight:500}
+.stat-sub{font-size:11px;color:#999;margin-top:2px}
+.period-bar{display:flex;align-items:center;gap:8px;margin-bottom:20px;flex-wrap:wrap}
+.period-btn{padding:6px 14px;border-radius:20px;border:1px solid #DDD;background:#fff;color:#666;font-size:12px;cursor:pointer}
+.period-btn.active{background:#378ADD;color:#fff;border-color:#185FA5;font-weight:500}
+.form-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.form-group{display:flex;flex-direction:column;gap:4px}
+.form-group label{font-size:12px;color:#666;font-weight:500}
+.form-group input,.form-group select{padding:8px 10px;border:1px solid #DDD;border-radius:8px;font-size:13px}
+.form-group input:focus,.form-group select:focus{outline:none;border-color:#378ADD}
+.form-group input:disabled,.form-group select:disabled{background:#F5F5F5;color:#999}
+.form-actions{display:flex;gap:8px;margin-top:16px;padding-top:16px;border-top:1px solid #EEE}
+.table-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:12px}
+th{text-align:left;padding:8px 12px;border-bottom:1px solid #DDD;font-weight:500;color:#666;font-size:11px;text-transform:uppercase;background:#F5F5F5;white-space:nowrap}
+td{padding:9px 12px;border-bottom:1px solid #EEE;vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:#F9F9F9}
+.badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:500;white-space:nowrap}
+.badge-blue{background:#E6F1FB;color:#0C447C}
+.badge-green{background:#EAF3DE;color:#27500A}
+.badge-amber{background:#FAEEDA;color:#633806}
+.badge-red{background:#FCEBEB;color:#791F1F}
+.badge-gray{background:#F1EFE8;color:#444}
+.badge-purple{background:#EEEDFE;color:#3C3489}
+.filter-bar{display:flex;gap:10px;align-items:center;margin-bottom:16px;flex-wrap:wrap}
+.filter-bar input,.filter-bar select{padding:7px 10px;border:1px solid #DDD;border-radius:8px;font-size:13px}
+.filter-bar input{flex:1;min-width:180px}
+.btn-sm{padding:4px 10px;font-size:11px;border-radius:6px;border:1px solid #DDD;background:#fff;color:#222;cursor:pointer;white-space:nowrap}
+.btn-sm:hover{background:#F5F5F5}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:center;justify-content:center;z-index:100}
+.modal-overlay.open{display:flex}
+.modal{background:#fff;border-radius:12px;padding:24px;width:92%;max-width:860px;max-height:90vh;overflow-y:auto}
+.modal h3{font-size:15px;font-weight:500;margin-bottom:16px}
+.empty{text-align:center;padding:32px;color:#999;font-size:13px}
+.alert-banner{padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:14px;display:flex;align-items:center;gap:8px}
+.alert-info{background:#E6F1FB;color:#0C447C}
+.alert-warn{background:#FAEEDA;color:#633806}
+.alert-success{background:#EAF3DE;color:#27500A}
+.alert-danger{background:#FCEBEB;color:#791F1F}
+.col-2{grid-column:span 2}
+.col-3{grid-column:span 3}
+.section-label{font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.06em;color:#999;padding:12px 0 6px;border-bottom:1px solid #EEE;margin-bottom:12px;grid-column:span 3}
+.loading{text-align:center;padding:24px;color:#999;font-size:13px}
+.spinner{display:inline-block;width:16px;height:16px;border:2px solid #EEE;border-top-color:#378ADD;border-radius:50%;animation:spin .8s linear infinite;margin-right:8px;vertical-align:middle}
+@keyframes spin{to{transform:rotate(360deg)}}
+.rev-alert-row td{background:#FCEBEB!important}
+.rev-urgent-badge{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:20px;font-size:11px;font-weight:500;background:#E24B4A;color:#fff}
+.oc-link{font-size:12px;color:#185FA5;text-decoration:none;display:inline-flex;align-items:center;gap:3px}
+.oc-link:hover{text-decoration:underline}
+.import-zone{border:2px dashed #DDD;border-radius:12px;padding:40px;text-align:center;cursor:pointer}
+.import-zone:hover{border-color:#378ADD;background:#E6F1FB}
+.users-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;margin-top:16px}
+.user-card{background:#F9F9F9;border:1px solid #E0E0E0;border-radius:10px;padding:16px}
+.user-card-name{font-size:14px;font-weight:500;margin-bottom:4px}
+.user-card-email{font-size:12px;color:#666;margin-bottom:8px}
+.user-card-actions{display:flex;gap:6px;margin-top:10px}
+.access-denied{text-align:center;padding:60px 20px}
+.access-denied h2{font-size:18px;color:#666;margin-top:12px}
+.access-denied p{font-size:13px;color:#999;margin-top:6px}
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- AUTH SCREEN                                                 -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div id="auth-screen" class="auth-wrap">
+  <div class="auth-card">
+    <div class="auth-logo">
+      <div style="font-size:40px">🚗</div>
+      <h1>Manutenção Veicular</h1>
+      <p>Sistema de Gestão de Frota</p>
+    </div>
+
+    <div class="auth-tabs">
+      <div class="auth-tab active" id="tab-login" onclick="switchTab('login')">Entrar</div>
+      <div class="auth-tab" id="tab-cadastro" onclick="switchTab('cadastro')">Cadastrar</div>
+    </div>
+
+    <div id="auth-error" class="auth-error"></div>
+    <div id="auth-success" class="auth-success"></div>
+
+    <!-- LOGIN -->
+    <div id="form-login">
+      <div class="auth-field">
+        <label>E-mail</label>
+        <input type="email" id="login-email" placeholder="seu@email.com" onkeydown="if(event.key==='Enter')fazerLogin()">
+      </div>
+      <div class="auth-field">
+        <label>Senha</label>
+        <input type="password" id="login-senha" placeholder="••••••••" onkeydown="if(event.key==='Enter')fazerLogin()">
+      </div>
+      <button class="auth-btn" id="btn-login" onclick="fazerLogin()">Entrar</button>
+      <div class="auth-link"><a onclick="switchTab('recuperar')">Esqueci minha senha</a></div>
+    </div>
+
+    <!-- RECUPERAR SENHA -->
+    <div id="form-recuperar" style="display:none">
+      <div class="auth-field">
+        <label>E-mail cadastrado</label>
+        <input type="email" id="rec-email" placeholder="seu@email.com" onkeydown="if(event.key==='Enter')solicitarReset()">
+      </div>
+      <button class="auth-btn" id="btn-rec-enviar" onclick="solicitarReset()">Enviar código</button>
+
+      <div id="rec-step2" style="display:none;margin-top:16px;padding-top:16px;border-top:1px solid #eee">
+        <div class="auth-field">
+          <label>Código recebido</label>
+          <input type="text" id="rec-token" placeholder="00000000" inputmode="numeric" maxlength="10" autocomplete="one-time-code">
+        </div>
+        <div class="auth-field">
+          <label>Nova senha</label>
+          <input type="password" id="rec-nova" placeholder="Mínimo 6 caracteres">
+        </div>
+        <div class="auth-field">
+          <label>Confirmar nova senha</label>
+          <input type="password" id="rec-nova2" placeholder="Repita a senha" onkeydown="if(event.key==='Enter')confirmarReset()">
+        </div>
+        <button class="auth-btn" id="btn-rec-confirmar" onclick="confirmarReset()">Redefinir senha</button>
+      </div>
+
+      <div class="auth-link" style="margin-top:16px"><a onclick="switchTab('login')">← Voltar ao login</a></div>
+    </div>
+
+    <!-- CADASTRO -->
+    <div id="form-cadastro" style="display:none">
+      <div class="auth-field">
+        <label>Nome completo</label>
+        <input type="text" id="cad-nome" placeholder="Seu nome completo">
+      </div>
+      <div class="auth-field">
+        <label>E-mail</label>
+        <input type="email" id="cad-email" placeholder="seu@email.com">
+      </div>
+      <div class="auth-field">
+        <label>Senha</label>
+        <input type="password" id="cad-senha" placeholder="Mínimo 6 caracteres">
+      </div>
+      <div class="auth-field">
+        <label>Confirmar senha</label>
+        <input type="password" id="cad-senha2" placeholder="Repita a senha">
+      </div>
+      <div style="font-size:12px;color:#666;background:#F5F8FB;padding:10px 12px;border-radius:8px;margin-bottom:14px">
+        Sua conta será criada como <strong>Visualizador</strong> (apenas consulta).
+        Caso precise de acesso de administrador, solicite ao gestor após o cadastro.
+      </div>
+      <button class="auth-btn" id="btn-cadastro" onclick="fazerCadastro()">Criar conta</button>
+      <div class="auth-link">Já tem conta? <a onclick="switchTab('login')">Entrar</a></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- MAIN APP                                                    -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div id="main-app" class="app">
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <span>Sistema</span>
+    <p>Manutenção Veicular</p>
+  </div>
+  <div class="user-info">
+    <div class="user-name" id="sidebar-nome">—</div>
+    <div style="margin-top:4px"><span class="user-role" id="sidebar-role">—</span></div>
+  </div>
+  <div class="nav-item active" onclick="showPage('dashboard')">📊 Dashboard</div>
+  <div class="nav-item" onclick="showPage('ordens')">📋 Ordens de Compra</div>
+  <div class="nav-item" id="nav-cadastro" onclick="showPage('cadastro')">➕ Novo Cadastro</div>
+  <div class="nav-item" id="nav-importar" onclick="showPage('importar')">📥 Importar Excel</div>
+  <div class="nav-item" onclick="showPage('revisoes')">🛡️ Próximas Revisões</div>
+  <div class="nav-item" onclick="showPage('relatorios')">📑 Relatórios</div>
+  <div class="nav-sep"></div>
+  <div class="nav-item" id="nav-usuarios" onclick="showPage('usuarios')">👥 Usuários</div>
+  <div class="sidebar-bottom">
+    <button class="logout-btn" onclick="fazerLogout()">🚪 Sair</button>
+  </div>
+</aside>
+
+<div class="main">
+  <div class="topbar">
+    <h1 id="page-title">Dashboard</h1>
+    <div style="display:flex;align-items:center;gap:10px">
+      <span class="api-badge" id="api-status">Conectando...</span>
+      <span id="topbar-user" style="font-size:12px;color:#666"></span>
+    </div>
+  </div>
+
+  <div class="content">
+
+    <!-- DASHBOARD -->
+    <div id="page-dashboard" class="page active">
+      <div class="period-bar">
+        <span style="font-size:12px;color:#666;font-weight:500">Período:</span>
+        <button class="period-btn active" onclick="setPeriod('mes',this)">Mês atual</button>
+        <button class="period-btn" onclick="setPeriod('mes_ant',this)">Mês anterior</button>
+        <button class="period-btn" onclick="setPeriod('3m',this)">Últimos 3 meses</button>
+        <button class="period-btn" onclick="setPeriod('6m',this)">Últimos 6 meses</button>
+        <button class="period-btn" onclick="setPeriod('trim',this)">Trimestre</button>
+        <button class="period-btn" onclick="setPeriod('ano',this)">Ano atual</button>
+        <button class="period-btn" onclick="setPeriod('todos',this)">Todos</button>
+      </div>
+      <div class="stats-grid">
+        <div class="stat-card"><div class="stat-label">Total de ordens</div><div class="stat-value" id="stat-total">-</div><div class="stat-sub">no período</div></div>
+        <div class="stat-card"><div class="stat-label">Valor total</div><div class="stat-value" id="stat-valor">-</div><div class="stat-sub">ordens de compra</div></div>
+        <div class="stat-card"><div class="stat-label">Revisões próximas</div><div class="stat-value" id="stat-rev">-</div><div class="stat-sub">próximos 30 dias</div></div>
+      </div>
+      <div class="card">
+        <div class="card-header"><span class="card-title">Últimas ordens</span><button class="btn" onclick="showPage('ordens')">Ver todas</button></div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Placa</th><th>Localidade</th><th>Fornecedor</th><th>Item</th><th>Categoria</th><th>Valor Total</th><th>Status</th></tr></thead>
+            <tbody id="dashboard-table"><tr><td colspan="7" class="loading"><span class="spinner"></span>Carregando...</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ORDENS -->
+    <div id="page-ordens" class="page">
+      <div class="filter-bar">
+        <input type="text" id="filtro-busca" placeholder="Buscar placa, fornecedor, nº ordem..." oninput="renderOrdens()">
+        <select id="filtro-status" onchange="renderOrdens()">
+          <option value="">Todos os status</option>
+          <option value="Pendente">Pendente</option>
+          <option value="Em Preparação">Em Preparação</option>
+          <option value="Concluído">Concluído</option>
+          <option value="Cancelado">Cancelado</option>
+        </select>
+        <select id="filtro-cat" onchange="renderOrdens()">
+          <option value="">Todas as categorias</option>
+          <option value="Serviço">Serviço</option>
+          <option value="Produto">Produto</option>
+        </select>
+        <button class="btn" onclick="carregarOrdens()">🔄 Atualizar</button>
+        <button class="btn btn-primary" id="btn-nova-ordem" onclick="showPage('cadastro')">+ Nova</button>
+      </div>
+      <div class="card">
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Nº Ordem</th><th>Link OC</th><th>Placa</th><th>Localidade</th><th>Supervisor</th><th>NF</th><th>Item</th><th>Categoria</th><th>Fornecedor</th><th>CNPJ</th><th>Vl. Item</th><th>Vl. Total</th><th>KM</th><th>Próx. Revisão</th><th>Status</th><th>Ações</th></tr></thead>
+            <tbody id="ordens-table"><tr><td colspan="16" class="loading"><span class="spinner"></span>Carregando...</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- CADASTRO -->
+    <div id="page-cadastro" class="page">
+      <div class="card">
+        <div class="card-header"><span class="card-title">Nova ordem de compra</span></div>
+        <div id="alert-cadastro" style="display:none"></div>
+        <div class="form-grid">
+          <span class="section-label">Dados do veículo</span>
+          <div class="form-group"><label>Placa *</label><input type="text" id="f-placa" placeholder="ABC-1234"></div>
+          <div class="form-group"><label>Localidade *</label><input type="text" id="f-localidade" placeholder="Cidade / Filial"></div>
+          <div class="form-group"><label>Supervisor *</label><input type="text" id="f-supervisor" placeholder="Nome do supervisor"></div>
+          <div class="form-group"><label>KM atual</label><input type="number" id="f-km" placeholder="Ex: 45000"></div>
+          <div class="form-group"><label>Próxima revisão</label><input type="date" id="f-revisao"></div>
+          <span class="section-label">Dados da ordem</span>
+          <div class="form-group"><label>Nº Ordem de Compra</label><input type="text" id="f-num-ordem" placeholder="Ex: OC-44821"></div>
+          <div class="form-group col-2"><label>Link da Ordem de Compra</label><input type="url" id="f-link-ordem" placeholder="https://..."></div>
+          <div class="form-group"><label>Nota fiscal *</label><input type="text" id="f-nf" placeholder="Ex: 001234"></div>
+          <div class="form-group"><label>Data da ordem *</label><input type="date" id="f-data"></div>
+          <div class="form-group"><label>Categoria *</label><select id="f-categoria"><option value="">Selecione...</option><option value="Serviço">Serviço</option><option value="Produto">Produto</option></select></div>
+          <div class="form-group col-2"><label>Item / descrição *</label><input type="text" id="f-item" placeholder="Ex: Troca de óleo, filtro de ar..."></div>
+          <div class="form-group"><label>Valor por item (R$)</label><input type="number" id="f-valor-item" placeholder="0,00" step="0.01" oninput="calcTotal()"></div>
+          <div class="form-group"><label>Quantidade</label><input type="number" id="f-qtd" value="1" oninput="calcTotal()"></div>
+          <div class="form-group"><label>Valor total (R$)</label><input type="number" id="f-valor-total" step="0.01" readonly style="background:#F5F5F5"></div>
+          <span class="section-label">Fornecedor</span>
+          <div class="form-group col-2"><label>Fornecedor *</label><input type="text" id="f-fornecedor" placeholder="Razão social"></div>
+          <div class="form-group"><label>CNPJ *</label><input type="text" id="f-cnpj" placeholder="00.000.000/0000-00" maxlength="18" oninput="maskCNPJ(this)"></div>
+          <span class="section-label">Status</span>
+          <div class="form-group"><label>Status</label><select id="f-status"><option>Pendente</option><option>Em Preparação</option><option>Concluído</option><option>Cancelado</option></select></div>
+        </div>
+        <div class="form-actions">
+          <button class="btn btn-primary" onclick="salvarOrdem()" id="btn-salvar">Salvar ordem</button>
+          <button class="btn" onclick="limparForm()">Limpar</button>
+          <button class="btn" onclick="showPage('ordens')">Cancelar</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- IMPORTAR -->
+    <div id="page-importar" class="page">
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Importar via Excel</span>
+          <button class="btn btn-primary" onclick="baixarTemplate()">⬇ Baixar Template</button>
+        </div>
+        <div class="alert-banner alert-info" style="margin-bottom:14px">
+          📋 <strong>Como usar:</strong> Baixe o template, preencha os dados e importe aqui. Colunas obrigatórias: <strong>placa, localidade, supervisor, nota_fiscal, data_ordem, categoria, item, fornecedor, cnpj</strong>
+        </div>
+        <div class="import-zone" onclick="document.getElementById('excel-input').click()" ondragover="event.preventDefault()" ondrop="handleDrop(event)">
+          <div style="font-size:32px;margin-bottom:8px">📥</div>
+          <p style="font-size:13px;color:#666">Clique ou arraste o arquivo .xlsx / .csv aqui</p>
+        </div>
+        <input type="file" id="excel-input" accept=".xlsx,.csv" style="display:none" onchange="handleFile(this)">
+        <div id="import-preview" style="margin-top:16px;display:none">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+            <span class="card-title" id="import-count"></span>
+            <div style="display:flex;gap:8px">
+              <button class="btn btn-primary" onclick="confirmarImport()">Confirmar importação</button>
+              <button class="btn" onclick="cancelarImport()">Cancelar</button>
+            </div>
+          </div>
+          <div class="table-wrap"><table>
+            <thead><tr><th>Placa</th><th>Localidade</th><th>Item</th><th>NF</th><th>Nº Ordem</th><th>Categoria</th><th>Fornecedor</th><th>Vl. Item</th><th>Qtd</th><th>Vl. Total</th></tr></thead>
+            <tbody id="import-table"></tbody>
+          </table></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- REVISÕES -->
+    <div id="page-revisoes" class="page">
+      <div id="rev-alert-box" style="display:none" class="alert-banner alert-warn"></div>
+      <div class="card">
+        <div class="card-header"><span class="card-title">Próximas revisões</span><button class="btn" onclick="carregarRevisoes()">🔄 Atualizar</button></div>
+        <div class="table-wrap"><table>
+          <thead><tr><th>Placa</th><th>Localidade</th><th>KM atual</th><th>Próxima revisão</th><th>Situação</th><th>Dias restantes</th><th>Ações</th></tr></thead>
+          <tbody id="revisoes-table"><tr><td colspan="7" class="loading"><span class="spinner"></span>Carregando...</td></tr></tbody>
+        </table></div>
+      </div>
+    </div>
+
+    <!-- RELATÓRIOS -->
+    <div id="page-relatorios" class="page">
+      <div class="card">
+        <div class="card-header"><span class="card-title">Filtros do relatório</span></div>
+        <div style="padding:16px;display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px">
+          <div class="auth-field" style="margin-bottom:0">
+            <label>Placa</label>
+            <input type="text" id="rel-placa" placeholder="Ex: ETU3F65" style="width:100%;padding:8px 10px;border:1px solid #DDD;border-radius:6px;font-size:13px;text-transform:uppercase">
+          </div>
+          <div class="auth-field" style="margin-bottom:0">
+            <label>Data inicial</label>
+            <input type="date" id="rel-data-inicio" style="width:100%;padding:8px 10px;border:1px solid #DDD;border-radius:6px;font-size:13px">
+          </div>
+          <div class="auth-field" style="margin-bottom:0">
+            <label>Data final</label>
+            <input type="date" id="rel-data-fim" style="width:100%;padding:8px 10px;border:1px solid #DDD;border-radius:6px;font-size:13px">
+          </div>
+          <div class="auth-field" style="margin-bottom:0">
+            <label>Ordem de compra</label>
+            <input type="text" id="rel-num-ordem" placeholder="Nº da ordem" style="width:100%;padding:8px 10px;border:1px solid #DDD;border-radius:6px;font-size:13px">
+          </div>
+          <div class="auth-field" style="margin-bottom:0">
+            <label>Item</label>
+            <input type="text" id="rel-item" placeholder="Descrição do item" style="width:100%;padding:8px 10px;border:1px solid #DDD;border-radius:6px;font-size:13px">
+          </div>
+        </div>
+        <div style="padding:0 16px 16px;display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-primary" onclick="gerarRelatorio()">🔍 Gerar relatório</button>
+          <button class="btn" onclick="limparFiltrosRelatorio()">↺ Limpar filtros</button>
+          <div style="flex:1"></div>
+          <button class="btn" id="btn-exp-xlsx" onclick="exportarRelatorioXLSX()" disabled>⬇️ Exportar XLSX</button>
+          <button class="btn" id="btn-exp-pdf" onclick="exportarRelatorioPDF()" disabled>⬇️ Exportar PDF</button>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:16px">
+        <div class="card-header">
+          <span class="card-title">Resultado <span id="rel-count" style="font-weight:400;color:#888;font-size:12px"></span></span>
+        </div>
+        <div class="table-wrap"><table>
+          <thead><tr>
+            <th>Data</th><th>Nº Ordem</th><th>Placa</th><th>Localidade</th>
+            <th>Categoria</th><th>Item</th><th>Qtd</th><th>Valor</th><th>Total</th><th>Status</th><th>Fornecedor</th>
+          </tr></thead>
+          <tbody id="rel-table"><tr><td colspan="11" class="empty">Aplique filtros e clique em "Gerar relatório".</td></tr></tbody>
+        </table></div>
+      </div>
+    </div>
+
+    <!-- USUÁRIOS -->
+    <div id="page-usuarios" class="page">
+      <div id="usuarios-denied" class="access-denied" style="display:none">
+        <div style="font-size:48px">🔒</div>
+        <h2>Acesso restrito</h2>
+        <p>Apenas administradores podem gerenciar usuários.</p>
+      </div>
+      <div id="usuarios-content" style="display:none">
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">Usuários cadastrados</span>
+            <button class="btn btn-primary" onclick="showModal('modal-novo-usuario')">+ Novo usuário</button>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Nome</th><th>E-mail</th><th>Perfil</th><th>Cadastrado em</th><th>Ações</th></tr></thead>
+              <tbody id="usuarios-table"><tr><td colspan="5" class="loading"><span class="spinner"></span>Carregando...</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+</div>
+
+<!-- MODAL EDITAR ORDEM -->
+<div class="modal-overlay" id="edit-modal">
+  <div class="modal">
+    <h3>Editar ordem</h3>
+    <div class="form-grid" id="edit-form-grid"></div>
+    <div style="display:flex;gap:8px;margin-top:16px;padding-top:16px;border-top:1px solid #EEE">
+      <button class="btn btn-primary" onclick="salvarEdicao()">Salvar alterações</button>
+      <button class="btn" onclick="closeModal('edit-modal')">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL NOVO USUÁRIO -->
+<div class="modal-overlay" id="modal-novo-usuario">
+  <div class="modal" style="max-width:440px">
+    <h3>Criar novo usuário</h3>
+    <div id="alert-novo-usuario" style="display:none"></div>
+    <div class="auth-field"><label>Nome completo</label><input type="text" id="nu-nome" placeholder="Nome completo"></div>
+    <div class="auth-field"><label>E-mail</label><input type="email" id="nu-email" placeholder="email@empresa.com"></div>
+    <div class="auth-field"><label>Senha temporária</label><input type="password" id="nu-senha" placeholder="Mínimo 6 caracteres"></div>
+    <div class="auth-field"><label>Perfil</label>
+      <select id="nu-perfil" style="width:100%;padding:10px;border:1px solid #DDD;border-radius:8px;font-size:13px">
+        <option value="visualizador">Visualizador</option>
+        <option value="administrador">Administrador</option>
+      </select>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:16px">
+      <button class="btn btn-primary" onclick="criarUsuario()" id="btn-criar-usuario">Criar usuário</button>
+      <button class="btn" onclick="closeModal('modal-novo-usuario')">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── CONFIG ────────────────────────────────────────────────────
+const API = 'https://manutencao-veicular-api-production.up.railway.app'
+const SUPABASE_URL = 'https://pjasyczbgghatkbgnovs.supabase.co'
+const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBqYXN5Y3piZ2doYXRrYmdub3ZzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc1NTY2NjMsImV4cCI6MjA5MzEzMjY2M30.h-fhhwockOgH9kjnAL9Dkv3-sB2B2TjZi_dY5nzhNJ4'
+
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON)
+
+let currentUser = null
+let currentPerfil = null
+let ordens = [], currentPeriod = 'mes', editId = null, importBuffer = []
+
+// ── AUTH ──────────────────────────────────────────────────────
+function switchTab(tab){
+  document.getElementById('tab-login').classList.toggle('active', tab==='login')
+  document.getElementById('tab-cadastro').classList.toggle('active', tab==='cadastro')
+  document.getElementById('form-login').style.display = tab==='login'?'block':'none'
+  document.getElementById('form-cadastro').style.display = tab==='cadastro'?'block':'none'
+  document.getElementById('form-recuperar').style.display = tab==='recuperar'?'block':'none'
+  document.querySelector('.auth-tabs').style.display = tab==='recuperar'?'none':'flex'
+  if(tab!=='recuperar'){
+    document.getElementById('rec-step2').style.display='none'
+    document.getElementById('rec-email').value=''
+    document.getElementById('rec-token').value=''
+    document.getElementById('rec-nova').value=''
+    document.getElementById('rec-nova2').value=''
+  }
+  clearAuthMessages()
+}
+
+function clearAuthMessages(){
+  document.getElementById('auth-error').style.display='none'
+  document.getElementById('auth-success').style.display='none'
+}
+
+function showAuthError(msg){
+  const el=document.getElementById('auth-error')
+  el.textContent=msg;el.style.display='block'
+  document.getElementById('auth-success').style.display='none'
+}
+
+function showAuthSuccess(msg){
+  const el=document.getElementById('auth-success')
+  el.textContent=msg;el.style.display='block'
+  document.getElementById('auth-error').style.display='none'
+}
+
+async function fazerLogin(){
+  const email=document.getElementById('login-email').value.trim()
+  const senha=document.getElementById('login-senha').value
+  if(!email||!senha){showAuthError('Preencha e-mail e senha.');return}
+  const btn=document.getElementById('btn-login')
+  btn.textContent='Entrando...';btn.disabled=true
+  clearAuthMessages()
+  try{
+    const{data,error}=await sb.auth.signInWithPassword({email,password:senha})
+    if(error) throw error
+    await iniciarSessao(data.user)
+  }catch(e){
+    showAuthError(e.message==='Invalid login credentials'?'E-mail ou senha incorretos.':e.message)
+  }finally{btn.textContent='Entrar';btn.disabled=false}
+}
+
+async function fazerCadastro(){
+  const nome=document.getElementById('cad-nome').value.trim()
+  const email=document.getElementById('cad-email').value.trim()
+  const senha=document.getElementById('cad-senha').value
+  const senha2=document.getElementById('cad-senha2').value
+  const perfil='visualizador'
+  if(!nome||!email||!senha){showAuthError('Preencha todos os campos.');return}
+  if(senha!==senha2){showAuthError('As senhas não coincidem.');return}
+  if(senha.length<6){showAuthError('A senha deve ter no mínimo 6 caracteres.');return}
+  const btn=document.getElementById('btn-cadastro')
+  btn.textContent='Criando conta...';btn.disabled=true
+  clearAuthMessages()
+  try{
+    const opts={data:{nome,perfil}}
+    if(location.protocol==='http:'||location.protocol==='https:') opts.emailRedirectTo=location.href
+    const{data,error}=await sb.auth.signUp({email,password:senha,options:opts})
+    if(error) throw error
+    showAuthSuccess('Conta criada! Verifique seu e-mail e clique no link de confirmação. Se aparecer uma página de erro do navegador depois do clique, ignore — sua conta já foi confirmada e você pode voltar aqui e fazer login.')
+    setTimeout(()=>switchTab('login'),6000)
+  }catch(e){showAuthError(e.message)}
+  finally{btn.textContent='Criar conta';btn.disabled=false}
+}
+
+async function solicitarReset(){
+  const email=document.getElementById('rec-email').value.trim()
+  if(!email){showAuthError('Informe o e-mail.');return}
+  const btn=document.getElementById('btn-rec-enviar')
+  btn.textContent='Enviando...';btn.disabled=true
+  clearAuthMessages()
+  try{
+    const opts={}
+    if(location.protocol==='http:'||location.protocol==='https:') opts.redirectTo=location.href
+    const{error}=await sb.auth.resetPasswordForEmail(email,opts)
+    if(error) throw error
+    showAuthSuccess('Código enviado! Verifique seu e-mail e cole o código de 6 dígitos abaixo. (Se o e-mail trouxer só um link, clique no link e ele te trará de volta para concluir.)')
+    document.getElementById('rec-step2').style.display='block'
+    document.getElementById('rec-token').focus()
+  }catch(e){showAuthError(e.message)}
+  finally{btn.textContent='Enviar código';btn.disabled=false}
+}
+
+async function confirmarReset(){
+  const email=document.getElementById('rec-email').value.trim()
+  const token=document.getElementById('rec-token').value.trim()
+  const nova=document.getElementById('rec-nova').value
+  const nova2=document.getElementById('rec-nova2').value
+  if(!nova){showAuthError('Informe a nova senha.');return}
+  if(nova!==nova2){showAuthError('As senhas não coincidem.');return}
+  if(nova.length<6){showAuthError('A senha deve ter no mínimo 6 caracteres.');return}
+  const btn=document.getElementById('btn-rec-confirmar')
+  btn.textContent='Redefinindo...';btn.disabled=true
+  clearAuthMessages()
+  try{
+    // Se o token de 6 dígitos foi informado, validar via OTP. Caso contrário, presume sessão de recovery ativa.
+    if(token){
+      const{error:e1}=await sb.auth.verifyOtp({email,token,type:'recovery'})
+      if(e1) throw e1
+    }
+    const{error:e2}=await sb.auth.updateUser({password:nova})
+    if(e2) throw e2
+    await sb.auth.signOut()
+    showAuthSuccess('Senha redefinida com sucesso! Faça login com a nova senha.')
+    setTimeout(()=>switchTab('login'),3000)
+  }catch(e){
+    const msg=e.message||''
+    if(msg.includes('Token')||msg.includes('expired')||msg.includes('invalid')) showAuthError('Código inválido ou expirado. Solicite um novo.')
+    else showAuthError(msg)
+  }finally{btn.textContent='Redefinir senha';btn.disabled=false}
+}
+
+async function fazerLogout(){
+  await sb.auth.signOut()
+  currentUser=null;currentPerfil=null
+  document.getElementById('main-app').classList.remove('visible')
+  document.getElementById('auth-screen').style.display='flex'
+}
+
+async function iniciarSessao(user){
+  currentUser=user
+  const meta=user.user_metadata||{}
+  // Fonte da verdade: tabela profiles (admin pode editar). Fallback para metadata se a query travar/falhar.
+  let perfilDB=null,nomeDB=null,profileMissing=false,queryFalhou=false
+  try{
+    const queryProfile=sb.from('profiles').select('nome,perfil').eq('id',user.id).maybeSingle()
+    const timeout=new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),3000))
+    const result=await Promise.race([queryProfile,timeout])
+    if(result&&result.error) throw result.error
+    if(result&&result.data){perfilDB=result.data.perfil;nomeDB=result.data.nome}
+    else profileMissing=true   // query OK mas sem linha = usuário foi desativado
+  }catch(e){
+    queryFalhou=true
+    console.warn('[iniciarSessao] query profiles falhou, fallback p/ user_metadata:',e.message)
+  }
+  // Bloqueia usuário sem linha em profiles (foi removido pelo admin)
+  if(profileMissing&&!queryFalhou){
+    alert('Sua conta foi desativada pelo administrador.\n\nEntre em contato com o gestor caso precise restabelecer o acesso.')
+    await sb.auth.signOut()
+    document.getElementById('main-app').classList.remove('visible')
+    document.getElementById('auth-screen').style.display='flex'
+    return
+  }
+  currentPerfil=perfilDB||meta.perfil||'visualizador'
+  const nome=nomeDB||meta.nome||user.email
+
+  // UI sidebar
+  document.getElementById('sidebar-nome').textContent=nome
+  const roleEl=document.getElementById('sidebar-role')
+  roleEl.textContent=currentPerfil==='administrador'?'Administrador':'Visualizador'
+  roleEl.className=currentPerfil==='administrador'?'user-role role-admin':'user-role role-viewer'
+  document.getElementById('topbar-user').textContent=nome
+
+  // Permissões por perfil
+  const isAdmin=currentPerfil==='administrador'
+  document.getElementById('nav-cadastro').classList.toggle('disabled',!isAdmin)
+  document.getElementById('nav-importar').classList.toggle('disabled',!isAdmin)
+  document.getElementById('nav-usuarios').style.display=isAdmin?'flex':'none'
+  document.getElementById('btn-nova-ordem').style.display=isAdmin?'inline-block':'none'
+
+  // Mostrar app
+  document.getElementById('auth-screen').style.display='none'
+  document.getElementById('main-app').classList.add('visible')
+
+  await checkApi()
+  carregarDashboard()
+}
+
+// Verificar sessão ao carregar
+// Importante: NÃO chamar sb.from(...) síncrono dentro do callback — causa deadlock do auth lock.
+// Usamos setTimeout(...,0) para sair da pilha do listener antes de fazer queries.
+sb.auth.onAuthStateChange((event,session)=>{
+  if(event==='PASSWORD_RECOVERY'){
+    setTimeout(()=>{
+      document.getElementById('main-app').classList.remove('visible')
+      document.getElementById('auth-screen').style.display='flex'
+      switchTab('recuperar')
+      document.getElementById('rec-email').value=session?.user?.email||''
+      document.getElementById('rec-step2').style.display='block'
+      document.getElementById('rec-token').closest('.auth-field').style.display='none'
+      showAuthSuccess('E-mail validado! Defina sua nova senha abaixo.')
+    },0)
+    return
+  }
+  if(session?.user) setTimeout(()=>iniciarSessao(session.user),0)
+})
+
+// ── API ───────────────────────────────────────────────────────
+async function apiCall(path,method='GET',body=null){
+  const opts={method,headers:{'Content-Type':'application/json'}}
+  if(body) opts.body=JSON.stringify(body)
+  const r=await fetch(API+path,opts)
+  if(!r.ok) throw new Error(await r.text())
+  return r.json()
+}
+
+async function checkApi(){
+  try{
+    await apiCall('/health')
+    setStatus('✓ Conectado ao banco','#EAF3DE','#27500A')
+  }catch{setStatus('✗ Sem conexão','#FCEBEB','#791F1F')}
+}
+
+function setStatus(text,bg,color){
+  const el=document.getElementById('api-status')
+  el.textContent=text;el.style.background=bg;el.style.color=color
+}
+
+// ── NAVEGAÇÃO ─────────────────────────────────────────────────
+function showPage(id){
+  const isAdmin=currentPerfil==='administrador'
+  if((id==='cadastro'||id==='importar')&&!isAdmin) return
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'))
+  document.getElementById('page-'+id).classList.add('active')
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'))
+  const titles={dashboard:'Dashboard',ordens:'Ordens de Compra',cadastro:'Novo Cadastro',importar:'Importar Excel',revisoes:'Próximas Revisões',relatorios:'Relatórios',usuarios:'Gerenciar Usuários'}
+  document.getElementById('page-title').textContent=titles[id]||''
+  const navs=['dashboard','ordens','cadastro','importar','revisoes','relatorios']
+  navs.forEach((n,i)=>{if(n===id)document.querySelectorAll('.nav-item')[i]?.classList.add('active')})
+  if(id==='dashboard') carregarDashboard()
+  if(id==='ordens') carregarOrdens()
+  if(id==='revisoes') carregarRevisoes()
+  if(id==='usuarios') carregarUsuarios()
+  if(id==='relatorios') document.getElementById('rel-placa').focus()
+}
+
+function showModal(id){document.getElementById(id).classList.add('open')}
+function closeModal(id){document.getElementById(id).classList.remove('open')}
+
+// ── FORMATAÇÃO ────────────────────────────────────────────────
+function fmtMoeda(v){return'R$ '+Number(v||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}
+function fmtData(d){if(!d)return'-';const[y,m,dia]=d.split('T')[0].split('-');return`${dia}/${m}/${y}`}
+function statusBadge(s){const m={Pendente:'badge-amber','Em Preparação':'badge-blue',Concluído:'badge-green',Cancelado:'badge-red'};return`<span class="badge ${m[s]||'badge-gray'}">${s}</span>`}
+function catBadge(c){return`<span class="badge ${c==='Serviço'?'badge-purple':'badge-gray'}">${c}</span>`}
+function setPeriod(p,btn){currentPeriod=p;document.querySelectorAll('.period-btn').forEach(b=>b.classList.remove('active'));btn.classList.add('active');carregarDashboard()}
+
+function getPeriodParams(p){
+  const now=new Date(),y=now.getFullYear(),m=now.getMonth()
+  if(p==='mes') return `data_inicio=${y}-${String(m+1).padStart(2,'0')}-01&data_fim=${y}-${String(m+1).padStart(2,'0')}-31`
+  if(p==='mes_ant'){
+    const mesAnt=m===0?12:m, anoAnt=m===0?y-1:y
+    const ultimoDia=new Date(anoAnt,mesAnt,0).getDate()
+    return `data_inicio=${anoAnt}-${String(mesAnt).padStart(2,'0')}-01&data_fim=${anoAnt}-${String(mesAnt).padStart(2,'0')}-${ultimoDia}`
+  }
+  if(p==='3m') return `data_inicio=${new Date(y,m-2,1).toISOString().split('T')[0]}`
+  if(p==='6m') return `data_inicio=${new Date(y,m-5,1).toISOString().split('T')[0]}`
+  if(p==='trim'){const q=Math.floor(m/3);return `data_inicio=${y}-${String(q*3+1).padStart(2,'0')}-01`}
+  if(p==='ano') return `data_inicio=${y}-01-01`
+  return ''
+}
+
+function baixarTemplate(){
+  const wb = XLSX.utils.book_new()
+
+  // ── Aba importacao ────────────────────────────────────────────
+  const headers = ['placa','localidade','supervisor','km_atual','proxima_revisao','num_ordem','link_ordem','nota_fiscal','data_ordem','categoria','item','valor_item','quantidade','fornecedor','cnpj','status']
+  const labels  = ['Placa *','Localidade *','Supervisor *','KM Atual','Próxima Revisão (DD/MM/AAAA)','Nº Ordem de Compra','Link Ordem de Compra','Nota Fiscal *','Data da Ordem * (DD/MM/AAAA)','Categoria * (Serviço ou Produto)','Item / Descrição *','Valor por Item (R$)','Quantidade','Fornecedor *','CNPJ *','Status (opcional)']
+  const ex1 = ['ABC-1234','São Paulo / Filial Centro','Carlos Mendes','45000','15/07/2025','OC-44821','https://app.cotabox.com.br/orders/44821','001234','10/04/2025','Serviço','Revisão 30.000 km','850,00','1','Auto Center Rápido Ltda','12.345.678/0001-90','Concluído']
+  const ex2 = ['DEF-4321','Campinas / Filial Norte','Ana Souza','55000','20/06/2025','OC-44822','https://app.cotabox.com.br/orders/44822','001235','12/04/2025','Produto','Pneus Michelin 195/65 R15','420,00','4','Pneucentro Distribuidora','98.765.432/0001-11','Em Preparação']
+
+  const wsImp = XLSX.utils.aoa_to_sheet([headers, labels, ex1, ex2])
+  wsImp['!cols'] = headers.map((_,i)=>({wch: i===6?45 : i===10||i===13?30 : i===15?18 : 20}))
+  XLSX.utils.book_append_sheet(wb, wsImp, 'importacao')
+
+  // ── Aba instrucoes ────────────────────────────────────────────
+  const inst = [
+    ['INSTRUÇÕES DE PREENCHIMENTO'],
+    [''],
+    ['COMO USAR'],
+    ['1. Preencha os dados a partir da LINHA 3 (não altere as linhas 1 e 2)'],
+    ['2. Não altere os nomes técnicos da linha 1'],
+    ['3. Salve como .xlsx antes de importar no sistema'],
+    ['4. Se deixar o campo Status vazio, o sistema assume Pendente'],
+    [''],
+    ['CAMPO','OBRIGATÓRIO?','REGRA'],
+    ['placa','Sim','Formato livre. Ex: ABC-1234 ou BRA2E25'],
+    ['localidade','Sim','Cidade, estado ou filial'],
+    ['supervisor','Sim','Nome completo do supervisor'],
+    ['km_atual','Não','Apenas números. Ex: 45000'],
+    ['proxima_revisao','Não','Formato DD/MM/AAAA. Ex: 15/07/2025'],
+    ['num_ordem','Não','Número da OC. Ex: OC-44821'],
+    ['link_ordem','Não','URL completa da ordem no Cotabox'],
+    ['nota_fiscal','Sim','Número da nota fiscal'],
+    ['data_ordem','Sim','Formato DD/MM/AAAA. Ex: 10/04/2025'],
+    ['categoria','Sim','Apenas: Serviço  ou  Produto'],
+    ['item','Sim','Descrição do serviço ou produto'],
+    ['valor_item','Não','Valor unitário em R$. Use vírgula: 850,00'],
+    ['quantidade','Não','Número inteiro. Padrão: 1'],
+    ['fornecedor','Sim','Razão social do fornecedor'],
+    ['cnpj','Sim','Com ou sem formatação'],
+    ['status','Não','Pendente / Em Preparação / Concluído / Cancelado'],
+  ]
+  const wsInst = XLSX.utils.aoa_to_sheet(inst)
+  wsInst['!cols'] = [{wch:20},{wch:14},{wch:55}]
+  XLSX.utils.book_append_sheet(wb, wsInst, 'instrucoes')
+
+  // ── Aba listas ────────────────────────────────────────────────
+  const wsListas = XLSX.utils.aoa_to_sheet([
+    ['categoria','status'],
+    ['Serviço','Pendente'],
+    ['Produto','Em Preparação'],
+    ['','Concluído'],
+    ['','Cancelado'],
+  ])
+  wsListas['!cols'] = [{wch:14},{wch:18}]
+  XLSX.utils.book_append_sheet(wb, wsListas, 'listas')
+
+  XLSX.writeFile(wb, 'template_importacao_manutencao.xlsx')
+  alert('✅ Template baixado! Procure na pasta Downloads.\n\nLembre-se:\n• Preencha a partir da linha 3\n• Status: Pendente, Em Preparação, Concluído ou Cancelado\n• Se Status vazio → assume Pendente')
+}
+
+// ── DASHBOARD ─────────────────────────────────────────────────
+async function carregarDashboard(){
+  try{
+    const params=getPeriodParams(currentPeriod)
+    const paramStr=params?'&'+params:''
+    const[resumo,ordsData]=await Promise.all([
+      apiCall(`/api/dashboard/resumo?periodo=${currentPeriod}`),
+      apiCall(`/api/ordens?limit=8${paramStr}`)
+    ])
+    document.getElementById('stat-total').textContent=resumo.total_ordens||0
+    document.getElementById('stat-valor').textContent=fmtMoeda(resumo.valor_total)
+    document.getElementById('stat-rev').textContent=resumo.revisoes_proximas||0
+    const lista=ordsData.data||[]
+    const tb=document.getElementById('dashboard-table')
+    if(!lista.length){tb.innerHTML='<tr><td colspan="7" class="empty">Nenhum registro no período selecionado.</td></tr>';return}
+    tb.innerHTML=lista.map(o=>{const v=o.veiculo||{},f=o.fornecedor||{};return`<tr><td><strong>${v.placa||'-'}</strong></td><td>${v.localidade||'-'}</td><td>${f.razao_social||'-'}</td><td>${o.item}</td><td>${catBadge(o.categoria)}</td><td>${fmtMoeda(o.valor_total)}</td><td>${statusBadge(o.status)}</td></tr>`}).join('')
+  }catch(e){document.getElementById('dashboard-table').innerHTML='<tr><td colspan="7" class="empty">Erro ao carregar.</td></tr>'}
+}
+
+// ── ORDENS ────────────────────────────────────────────────────
+async function carregarOrdens(){
+  document.getElementById('ordens-table').innerHTML='<tr><td colspan="16" class="loading"><span class="spinner"></span>Carregando...</td></tr>'
+  try{const data=await apiCall('/api/ordens?limit=200');ordens=data.data||[];renderOrdens()}
+  catch(e){document.getElementById('ordens-table').innerHTML=`<tr><td colspan="16" class="empty">Erro: ${e.message}</td></tr>`}
+}
+
+function renderOrdens(){
+  const isAdmin=currentPerfil==='administrador'
+  const busca=(document.getElementById('filtro-busca')?.value||'').toLowerCase()
+  const st=document.getElementById('filtro-status')?.value||''
+  const cat=document.getElementById('filtro-cat')?.value||''
+  let lista=ordens.filter(o=>{const v=o.veiculo||{},f=o.fornecedor||{};const txt=(v.placa+v.localidade+o.supervisor+f.razao_social+o.nota_fiscal+o.item+(o.num_ordem||'')).toLowerCase();return(!busca||txt.includes(busca))&&(!st||o.status===st)&&(!cat||o.categoria===cat)})
+  const tb=document.getElementById('ordens-table')
+  if(!lista.length){tb.innerHTML='<tr><td colspan="16" class="empty">Nenhuma ordem encontrada.</td></tr>';return}
+  tb.innerHTML=lista.map(o=>{
+    const v=o.veiculo||{},f=o.fornecedor||{}
+    const link=o.link_ordem?`<a class="oc-link" href="${o.link_ordem}" target="_blank">🔗 Abrir</a>`:'—'
+    const acoes=isAdmin
+      ?`<div style="display:flex;gap:4px"><button class="btn-sm" onclick="editarOrdem('${o.id}')">Editar</button><button class="btn-sm" style="color:red" onclick="excluirOrdem('${o.id}')">Excluir</button></div>`
+      :`<span style="font-size:11px;color:#999">Somente leitura</span>`
+    return`<tr><td><strong>${o.num_ordem||'—'}</strong></td><td>${link}</td><td><strong>${v.placa||'-'}</strong></td><td>${v.localidade||'-'}</td><td>${o.supervisor}</td><td>${o.nota_fiscal}</td><td>${o.item}</td><td>${catBadge(o.categoria)}</td><td>${f.razao_social||'-'}</td><td style="font-size:11px">${f.cnpj||'-'}</td><td>${fmtMoeda(o.valor_item)}</td><td><strong>${fmtMoeda(o.valor_total)}</strong></td><td>${v.km_atual?Number(v.km_atual).toLocaleString('pt-BR')+' km':'-'}</td><td>${fmtData(v.proxima_revisao)}</td><td>${statusBadge(o.status)}</td><td>${acoes}</td></tr>`
+  }).join('')
+}
+
+// ── RELATÓRIOS ────────────────────────────────────────────────
+let relatorioDados=[]
+
+function limparFiltrosRelatorio(){
+  ['rel-placa','rel-data-inicio','rel-data-fim','rel-num-ordem','rel-item'].forEach(id=>document.getElementById(id).value='')
+  relatorioDados=[]
+  document.getElementById('rel-table').innerHTML='<tr><td colspan="11" class="empty">Aplique filtros e clique em "Gerar relatório".</td></tr>'
+  document.getElementById('rel-count').textContent=''
+  document.getElementById('btn-exp-xlsx').disabled=true
+  document.getElementById('btn-exp-pdf').disabled=true
+}
+
+async function gerarRelatorio(){
+  const placa=document.getElementById('rel-placa').value.trim()
+  const dIni =document.getElementById('rel-data-inicio').value
+  const dFim =document.getElementById('rel-data-fim').value
+  const num  =document.getElementById('rel-num-ordem').value.trim()
+  const item =document.getElementById('rel-item').value.trim()
+  if(dIni&&dFim&&dIni>dFim){alert('Data inicial não pode ser maior que a final.');return}
+
+  // Backend só recebe filtros de data (funcionam corretamente).
+  // Placa, nº ordem e item são filtrados no cliente — evita bug do PostgREST em tabela joinada
+  // e funciona independente de o backend ter os filtros novos ou não.
+  const params=new URLSearchParams({limit:1000})
+  if(dIni) params.set('data_inicio',dIni)
+  if(dFim) params.set('data_fim',dFim)
+
+  const tb=document.getElementById('rel-table')
+  tb.innerHTML='<tr><td colspan="11" class="loading"><span class="spinner"></span>Gerando...</td></tr>'
+  document.getElementById('rel-count').textContent=''
+  document.getElementById('btn-exp-xlsx').disabled=true
+  document.getElementById('btn-exp-pdf').disabled=true
+  try{
+    const data=await apiCall('/api/ordens?'+params.toString())
+    let lista=data.data||[]
+
+    // Filtros client-side (case-insensitive, busca parcial)
+    const lcPlaca=placa.toLowerCase()
+    const lcNum  =num.toLowerCase()
+    const lcItem =item.toLowerCase()
+    if(placa) lista=lista.filter(o=>((o.veiculo&&o.veiculo.placa)||'').toLowerCase().includes(lcPlaca))
+    if(num)   lista=lista.filter(o=>(o.num_ordem||'').toString().toLowerCase().includes(lcNum))
+    if(item)  lista=lista.filter(o=>(o.item||'').toLowerCase().includes(lcItem))
+
+    relatorioDados=lista
+    if(!relatorioDados.length){
+      tb.innerHTML='<tr><td colspan="11" class="empty">Nenhum resultado para os filtros aplicados.</td></tr>'
+      return
+    }
+    tb.innerHTML=relatorioDados.map(o=>{
+      const v=o.veiculo||{},f=o.fornecedor||{}
+      return `<tr>
+        <td>${fmtData(o.data_ordem)}</td>
+        <td><strong>${o.num_ordem||'—'}</strong></td>
+        <td><strong>${v.placa||'-'}</strong></td>
+        <td>${v.localidade||'-'}</td>
+        <td>${catBadge(o.categoria)}</td>
+        <td>${o.item||'-'}</td>
+        <td>${o.quantidade||1}</td>
+        <td>${fmtMoeda(o.valor_item)}</td>
+        <td><strong>${fmtMoeda(o.valor_total)}</strong></td>
+        <td>${statusBadge(o.status)}</td>
+        <td>${f.razao_social||'-'}</td>
+      </tr>`
+    }).join('')
+    const total=relatorioDados.reduce((s,o)=>s+Number(o.valor_total||0),0)
+    document.getElementById('rel-count').textContent=`— ${relatorioDados.length} registro(s) | Total: ${fmtMoeda(total)}`
+    document.getElementById('btn-exp-xlsx').disabled=false
+    document.getElementById('btn-exp-pdf').disabled=false
+  }catch(e){
+    tb.innerHTML=`<tr><td colspan="11" class="empty" style="color:#a00">Erro ao gerar relatório: ${e.message}</td></tr>`
+  }
+}
+
+function _relatorioRows(){
+  return relatorioDados.map(o=>({
+    'Data':           fmtData(o.data_ordem),
+    'Nº Ordem':       o.num_ordem||'',
+    'Placa':          o.veiculo?.placa||'',
+    'Localidade':     o.veiculo?.localidade||'',
+    'Categoria':      o.categoria||'',
+    'Item':           o.item||'',
+    'Quantidade':     o.quantidade||1,
+    'Valor unitário': Number(o.valor_item||0),
+    'Valor total':    Number(o.valor_total||0),
+    'Status':         o.status||'',
+    'Fornecedor':     o.fornecedor?.razao_social||'',
+    'CNPJ':           o.fornecedor?.cnpj||'',
+    'Nota fiscal':    o.nota_fiscal||'',
+    'Supervisor':     o.supervisor||''
+  }))
+}
+
+function exportarRelatorioXLSX(){
+  if(!relatorioDados.length){alert('Gere um relatório antes de exportar.');return}
+  const rows=_relatorioRows()
+  const ws=XLSX.utils.json_to_sheet(rows)
+  // larguras de coluna
+  ws['!cols']=Object.keys(rows[0]).map(k=>{
+    const len=Math.max(k.length,...rows.map(r=>String(r[k]??'').length))
+    return {wch:Math.min(Math.max(len+2,10),40)}
+  })
+  const wb=XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(wb,ws,'Relatório')
+  const stamp=new Date().toISOString().slice(0,10)
+  XLSX.writeFile(wb,`relatorio_manutencao_${stamp}.xlsx`)
+}
+
+function exportarRelatorioPDF(){
+  if(!relatorioDados.length){alert('Gere um relatório antes de exportar.');return}
+  const {jsPDF}=window.jspdf
+  const doc=new jsPDF({orientation:'landscape',unit:'mm',format:'a4'})
+  const stamp=new Date().toLocaleString('pt-BR')
+
+  doc.setFontSize(14);doc.text('Relatório de Manutenção Veicular',14,14)
+  doc.setFontSize(9);doc.setTextColor(100)
+  const filtros=[]
+  const fp=document.getElementById('rel-placa').value.trim()
+  const fdi=document.getElementById('rel-data-inicio').value
+  const fdf=document.getElementById('rel-data-fim').value
+  const fno=document.getElementById('rel-num-ordem').value.trim()
+  const fit=document.getElementById('rel-item').value.trim()
+  if(fp)  filtros.push(`Placa: ${fp}`)
+  if(fdi) filtros.push(`De: ${fdi.split('-').reverse().join('/')}`)
+  if(fdf) filtros.push(`Até: ${fdf.split('-').reverse().join('/')}`)
+  if(fno) filtros.push(`Ordem: ${fno}`)
+  if(fit) filtros.push(`Item: ${fit}`)
+  doc.text(filtros.length?'Filtros: '+filtros.join(' | '):'Filtros: (nenhum)',14,20)
+  doc.text(`Gerado em ${stamp}`,14,25)
+
+  const rows=_relatorioRows()
+  const head=[Object.keys(rows[0])]
+  const body=rows.map(r=>Object.values(r).map(v=>typeof v==='number'?v.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}):v))
+  const total=relatorioDados.reduce((s,o)=>s+Number(o.valor_total||0),0)
+
+  doc.autoTable({
+    head, body,
+    startY:30,
+    styles:{fontSize:7,cellPadding:2},
+    headStyles:{fillColor:[30,58,95],textColor:255,fontSize:7.5},
+    alternateRowStyles:{fillColor:[245,248,251]},
+    foot:[['','','','','','','TOTAL',`R$ ${(relatorioDados.reduce((s,o)=>s+Number(o.valor_item||0)*(o.quantidade||1),0)).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}`,`R$ ${total.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}`,'','','','','']],
+    footStyles:{fillColor:[230,241,251],textColor:[12,68,124],fontStyle:'bold'},
+    didDrawPage:(d)=>{
+      const str=`Página ${doc.internal.getNumberOfPages()}`
+      doc.setFontSize(8);doc.setTextColor(150)
+      doc.text(str,doc.internal.pageSize.getWidth()-25,doc.internal.pageSize.getHeight()-8)
+    }
+  })
+
+  const dt=new Date().toISOString().slice(0,10)
+  doc.save(`relatorio_manutencao_${dt}.pdf`)
+}
+
+// ── REVISÕES ──────────────────────────────────────────────────
+async function carregarRevisoes(){
+  document.getElementById('revisoes-table').innerHTML='<tr><td colspan="7" class="loading"><span class="spinner"></span>Carregando...</td></tr>'
+  try{
+    const data=await apiCall('/api/veiculos/revisoes?dias=3650')
+    const hoje=new Date();hoje.setHours(0,0,0,0)
+    const lista=(data||[]).map(v=>{
+      const d=new Date(v.proxima_revisao);d.setHours(0,0,0,0)
+      return{...v,diff:Math.ceil((d-hoje)/(1000*60*60*24))}
+    }).sort((a,b)=>a.diff-b.diff)
+    const urgentes=lista.filter(v=>v.diff>=0&&v.diff<=10)
+    const alertBox=document.getElementById('rev-alert-box')
+    if(urgentes.length){
+      alertBox.style.display='flex'
+      alertBox.innerHTML=`⚠️ <strong>${urgentes.length} veículo(s)</strong> com revisão nos próximos 10 dias: ${urgentes.map(u=>`<strong>${u.placa}</strong> (${u.diff===0?'hoje':u.diff+' dias'})`).join(', ')}`
+    }else{alertBox.style.display='none'}
+    const tb=document.getElementById('revisoes-table')
+    if(!lista.length){tb.innerHTML='<tr><td colspan="7" class="empty">Nenhuma revisão cadastrada. Preencha a data de próxima revisão ao cadastrar as ordens.</td></tr>';return}
+    const isAdmin=currentPerfil==='administrador'
+    tb.innerHTML=lista.map(v=>{
+      const isU=v.diff>=0&&v.diff<=10,isVenc=v.diff<0
+      let sit,dias
+      if(isVenc){
+        sit='<span class="badge badge-red">Vencida</span>'
+        dias=`<span style="color:red;font-weight:500">${Math.abs(v.diff)} dias atrás</span>`
+      }else if(isU){
+        sit='<span class="rev-urgent-badge">⚠ Urgente</span>'
+        dias=`<span style="color:#791F1F;font-weight:500">${v.diff===0?'Hoje':v.diff+' dia(s)'}</span>`
+      }else if(v.diff<=30){
+        sit='<span class="badge badge-amber">Próxima</span>';dias=v.diff+' dias'
+      }else{
+        sit='<span class="badge badge-green">OK</span>';dias=v.diff+' dias'
+      }
+      const btnConcluir=isAdmin
+        ?`<button class="btn-sm" style="background:#EAF3DE;color:#27500A;border-color:#B7DFA3" onclick="concluirRevisao('${v.id}','${v.placa}')">✓ Concluída</button>`
+        :''
+      return`<tr class="${isU?'rev-alert-row':''}">
+        <td><strong>${v.placa}</strong></td>
+        <td>${v.localidade||'-'}</td>
+        <td>${v.km_atual?Number(v.km_atual).toLocaleString('pt-BR')+' km':'-'}</td>
+        <td>${fmtData(v.proxima_revisao)}</td>
+        <td>${sit}</td>
+        <td>${dias}</td>
+        <td>${btnConcluir}</td>
+      </tr>`
+    }).join('')
+  }catch(e){
+    document.getElementById('revisoes-table').innerHTML=`<tr><td colspan="7" class="empty">Erro: ${e.message}</td></tr>`
+  }
+}
+
+async function concluirRevisao(veiculoId, placa){
+  if(!confirm(`Marcar revisão do veículo ${placa} como Concluída?\n\nIsso vai atualizar todas as ordens deste veículo com status "Concluído" e limpar a data de próxima revisão.`)) return
+  try{
+    // Buscar ordens do veículo e marcar como Concluído
+    const ordensData=await apiCall(`/api/ordens?limit=200`)
+    const ordensVeiculo=(ordensData.data||[]).filter(o=>o.veiculo_id===veiculoId||o.veiculo?.id===veiculoId)
+    for(const o of ordensVeiculo){
+      if(o.status!=='Concluído'){
+        await apiCall(`/api/ordens/${o.id}`,'PATCH',{status:'Concluído'})
+      }
+    }
+    // Limpar proxima_revisao do veículo
+    await apiCall(`/api/veiculos/${veiculoId}`,'PUT',{proxima_revisao:null}).catch(()=>{})
+    alert(`✅ Revisão do veículo ${placa} marcada como Concluída!`)
+    carregarRevisoes()
+  }catch(e){
+    alert('Erro: '+e.message)
+  }
+}
+
+// ── USUÁRIOS (admin only) ─────────────────────────────────────
+async function carregarUsuarios(){
+  const isAdmin=currentPerfil==='administrador'
+  document.getElementById('usuarios-denied').style.display=isAdmin?'none':'block'
+  document.getElementById('usuarios-content').style.display=isAdmin?'block':'none'
+  if(!isAdmin) return
+  try{
+    const{data,error}=await sb.from('profiles').select('*').order('created_at',{ascending:false})
+    if(error) throw error
+    const tb=document.getElementById('usuarios-table')
+    if(!data?.length){tb.innerHTML='<tr><td colspan="5" class="empty">Nenhum usuário cadastrado ainda.</td></tr>';return}
+    tb.innerHTML=data.map(u=>{
+      const isSelf=u.id===currentUser.id
+      const nomeEsc=(u.nome||u.email||'').replace(/'/g,"\\'")
+      const perfilCell=isSelf
+        ? `<span class="${u.perfil==='administrador'?'role-admin':'role-viewer'}">${u.perfil==='administrador'?'Administrador':'Visualizador'}</span>`
+        : `<select class="role-select" data-prev="${u.perfil}" onchange="alterarPerfil('${u.id}','${nomeEsc}',this)">
+             <option value="visualizador" ${u.perfil==='visualizador'?'selected':''}>Visualizador</option>
+             <option value="administrador" ${u.perfil==='administrador'?'selected':''}>Administrador</option>
+           </select>`
+      const acoes=isSelf
+        ? '<span style="font-size:11px;color:#999">Você</span>'
+        : `<button class="btn-sm btn-danger" onclick="excluirUsuario('${u.id}')">Desativar</button>`
+      return `<tr>
+        <td><strong>${u.nome||'—'}</strong></td>
+        <td>${u.email||'—'}</td>
+        <td>${perfilCell}</td>
+        <td>${u.created_at?fmtData(u.created_at):'-'}</td>
+        <td>${acoes}</td>
+      </tr>`
+    }).join('')
+  }catch(e){
+    document.getElementById('usuarios-table').innerHTML=`<tr><td colspan="5" class="empty" style="color:#a00">Erro ao listar usuários: ${e.message}</td></tr>`
+  }
+}
+
+async function criarUsuario(){
+  const nome=document.getElementById('nu-nome').value.trim()
+  const email=document.getElementById('nu-email').value.trim()
+  const senha=document.getElementById('nu-senha').value
+  const perfil=document.getElementById('nu-perfil').value
+  if(!nome||!email||!senha){showAlertModal('Preencha todos os campos.','danger');return}
+  const btn=document.getElementById('btn-criar-usuario')
+  btn.textContent='Criando...';btn.disabled=true
+  try{
+    const opts={data:{nome,perfil}}
+    if(location.protocol==='http:'||location.protocol==='https:') opts.emailRedirectTo=location.href
+    const{error}=await sb.auth.signUp({email,password:senha,options:opts})
+    if(error) throw error
+    showAlertModal('Usuário criado! Ele receberá um e-mail para confirmar a conta. Avise que, se aparecer uma página de erro do navegador após o clique no link, é normal — a conta já estará confirmada e basta acessar o sistema com e-mail e senha.','success')
+    document.getElementById('nu-nome').value=''
+    document.getElementById('nu-email').value=''
+    document.getElementById('nu-senha').value=''
+    setTimeout(()=>{closeModal('modal-novo-usuario');carregarUsuarios()},2000)
+  }catch(e){showAlertModal(e.message,'danger')}
+  finally{btn.textContent='Criar usuário';btn.disabled=false}
+}
+
+function showAlertModal(msg,type){
+  const el=document.getElementById('alert-novo-usuario')
+  el.innerHTML=`<div class="alert-banner alert-${type}">${msg}</div>`
+  el.style.display='block'
+}
+
+async function alterarPerfil(id,nome,sel){
+  const novoPerfil=sel.value
+  const perfilAnterior=sel.dataset.prev
+  if(novoPerfil===perfilAnterior) return
+  if(!confirm(`Alterar o perfil de "${nome}" de "${perfilAnterior}" para "${novoPerfil}"?\n\nA alteração entra em vigor no próximo login do usuário.`)){
+    sel.value=perfilAnterior
+    return
+  }
+  sel.disabled=true
+  try{
+    const{error}=await sb.from('profiles').update({perfil:novoPerfil}).eq('id',id)
+    if(error) throw error
+    sel.dataset.prev=novoPerfil
+  }catch(e){
+    alert('Erro ao alterar perfil: '+e.message)
+    sel.value=perfilAnterior
+  }finally{sel.disabled=false}
+}
+
+async function excluirUsuario(id){
+  if(!confirm('Desativar este usuário?\n\nO acesso ao sistema será bloqueado imediatamente. A conta de e-mail/senha permanece registrada — para apagar definitivamente, é preciso fazer no painel do Supabase.')) return
+  try{
+    const{error}=await sb.from('profiles').delete().eq('id',id)
+    if(error) throw error
+    carregarUsuarios()
+  }catch(e){alert('Erro ao desativar: '+e.message)}
+}
+
+// ── CADASTRO ORDEM ────────────────────────────────────────────
+function calcTotal(){const vi=parseFloat(document.getElementById('f-valor-item').value)||0;const qt=parseFloat(document.getElementById('f-qtd').value)||1;document.getElementById('f-valor-total').value=(vi*qt).toFixed(2)}
+function maskCNPJ(el){let v=el.value.replace(/\D/g,'');v=v.replace(/^(\d{2})(\d)/,'$1.$2').replace(/^(\d{2})\.(\d{3})(\d)/,'$1.$2.$3').replace(/\.(\d{3})(\d)/,'.$1/$2').replace(/(\d{4})(\d)/,'$1-$2');el.value=v}
+function limparForm(){['f-placa','f-localidade','f-supervisor','f-km','f-revisao','f-num-ordem','f-link-ordem','f-nf','f-data','f-item','f-valor-item','f-qtd','f-valor-total','f-fornecedor','f-cnpj'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=''});document.getElementById('f-categoria').value='';document.getElementById('f-status').value='Pendente';document.getElementById('f-qtd').value='1'}
+function showAlert(msg,type='info'){const el=document.getElementById('alert-cadastro');el.innerHTML=`<div class="alert-banner alert-${type}">${msg}</div>`;el.style.display='block';if(type!=='danger')setTimeout(()=>{el.style.display='none'},3500)}
+
+async function salvarOrdem(){
+  if(currentPerfil!=='administrador'){showAlert('Sem permissão para cadastrar ordens.','danger');return}
+  const campos=['f-placa','f-localidade','f-supervisor','f-nf','f-item','f-categoria','f-fornecedor','f-cnpj']
+  for(const c of campos){if(!document.getElementById(c).value.trim()){showAlert('Preencha todos os campos obrigatórios (*)','danger');return}}
+  const btn=document.getElementById('btn-salvar');btn.textContent='Salvando...';btn.disabled=true
+  try{
+    await apiCall('/api/ordens','POST',{placa:document.getElementById('f-placa').value.toUpperCase().trim(),localidade:document.getElementById('f-localidade').value.trim(),supervisor:document.getElementById('f-supervisor').value.trim(),km_atual:document.getElementById('f-km').value||null,proxima_revisao:document.getElementById('f-revisao').value||null,num_ordem:document.getElementById('f-num-ordem').value.trim()||null,link_ordem:document.getElementById('f-link-ordem').value.trim()||null,nota_fiscal:document.getElementById('f-nf').value.trim(),data_ordem:document.getElementById('f-data').value||new Date().toISOString().split('T')[0],categoria:document.getElementById('f-categoria').value,item:document.getElementById('f-item').value.trim(),valor_item:parseFloat(document.getElementById('f-valor-item').value)||0,quantidade:parseInt(document.getElementById('f-qtd').value)||1,fornecedor:document.getElementById('f-fornecedor').value.trim(),cnpj:document.getElementById('f-cnpj').value.trim(),status:document.getElementById('f-status').value,origem:'Manual'})
+    showAlert('✓ Ordem salva com sucesso no banco de dados!','success');limparForm();setTimeout(()=>showPage('ordens'),1500)
+  }catch(e){showAlert('Erro ao salvar: '+e.message,'danger')}
+  finally{btn.textContent='Salvar ordem';btn.disabled=false}
+}
+
+function editarOrdem(id){
+  if(currentPerfil!=='administrador') return
+  const o=ordens.find(x=>x.id===id);if(!o)return;editId=id
+  const v=o.veiculo||{},f=o.fornecedor||{}
+  document.getElementById('edit-form-grid').innerHTML=`
+    <span class="section-label">Dados do veículo</span>
+    <div class="form-group"><label>Placa</label><input id="e-placa" value="${v.placa||''}"></div>
+    <div class="form-group"><label>Localidade</label><input id="e-localidade" value="${v.localidade||''}"></div>
+    <div class="form-group"><label>Supervisor</label><input id="e-supervisor" value="${o.supervisor||''}"></div>
+    <div class="form-group"><label>KM atual</label><input id="e-km" type="number" value="${v.km_atual||''}"></div>
+    <div class="form-group"><label>Próxima revisão</label><input id="e-revisao" type="date" value="${v.proxima_revisao?v.proxima_revisao.split('T')[0]:''}"></div>
+    <div class="form-group"></div>
+    <span class="section-label">Dados da ordem</span>
+    <div class="form-group"><label>Nº Ordem</label><input id="e-num-ordem" value="${o.num_ordem||''}"></div>
+    <div class="form-group col-2"><label>Link OC</label><input id="e-link-ordem" type="url" value="${o.link_ordem||''}"></div>
+    <div class="form-group"><label>Nota fiscal</label><input id="e-nf" value="${o.nota_fiscal||''}"></div>
+    <div class="form-group"><label>Data ordem</label><input id="e-data" type="date" value="${o.data_ordem?o.data_ordem.split('T')[0]:''}"></div>
+    <div class="form-group"><label>Categoria</label><select id="e-categoria"><option ${o.categoria==='Serviço'?'selected':''}>Serviço</option><option ${o.categoria==='Produto'?'selected':''}>Produto</option></select></div>
+    <div class="form-group col-2"><label>Item</label><input id="e-item" value="${o.item||''}"></div>
+    <div class="form-group"><label>Valor item (R$)</label><input id="e-valor-item" type="number" step="0.01" value="${o.valor_item||0}"></div>
+    <div class="form-group"><label>Quantidade</label><input id="e-qtd" type="number" value="${o.quantidade||1}"></div>
+    <div class="form-group"><label>Valor total (R$)</label><input id="e-valor-total" type="number" step="0.01" value="${o.valor_total||0}"></div>
+    <span class="section-label">Fornecedor</span>
+    <div class="form-group col-2"><label>Fornecedor</label><input id="e-fornecedor" value="${f.razao_social||''}"></div>
+    <div class="form-group"><label>CNPJ</label><input id="e-cnpj" value="${f.cnpj||''}" oninput="maskCNPJ(this)" maxlength="18"></div>
+    <span class="section-label">Status</span>
+    <div class="form-group"><label>Status</label><select id="e-status">
+      <option ${o.status==='Pendente'?'selected':''}>Pendente</option>
+      <option ${o.status==='Em Preparação'?'selected':''}>Em Preparação</option>
+      <option ${o.status==='Concluído'?'selected':''}>Concluído</option>
+      <option ${o.status==='Cancelado'?'selected':''}>Cancelado</option>
+    </select></div>`
+  showModal('edit-modal')
+}
+
+async function salvarEdicao(){
+  if(!editId)return
+  try{
+    const kmVal  = document.getElementById('e-km').value
+    const revVal = document.getElementById('e-revisao').value
+    const placa  = document.getElementById('e-placa').value.toUpperCase().trim()
+    const local  = document.getElementById('e-localidade').value.trim()
+
+    // Atualizar campos da ordem
+    await apiCall(`/api/ordens/${editId}`,'PUT',{
+      supervisor:   document.getElementById('e-supervisor').value,
+      num_ordem:    document.getElementById('e-num-ordem').value||null,
+      link_ordem:   document.getElementById('e-link-ordem').value||null,
+      nota_fiscal:  document.getElementById('e-nf').value,
+      data_ordem:   document.getElementById('e-data').value||null,
+      categoria:    document.getElementById('e-categoria').value,
+      item:         document.getElementById('e-item').value,
+      valor_item:   parseFloat(document.getElementById('e-valor-item').value)||0,
+      quantidade:   parseInt(document.getElementById('e-qtd').value)||1,
+      valor_total:  parseFloat(document.getElementById('e-valor-total').value)||0,
+      status:       document.getElementById('e-status').value,
+      fornecedor:   document.getElementById('e-fornecedor').value||null,
+      cnpj:         document.getElementById('e-cnpj').value.replace(/\D/g,'')||null
+    })
+
+    // Atualizar veículo direto no Supabase (service key via sb client)
+    const ordemAtual = ordens.find(o=>o.id===editId)
+    const veiculoId  = ordemAtual?.veiculo_id || ordemAtual?.veiculo?.id
+    if(veiculoId){
+      const upd = {
+        placa,
+        localidade: local,
+        updated_at: new Date().toISOString()
+      }
+      if(kmVal)  upd.km_atual = parseInt(kmVal)
+      if(revVal) upd.proxima_revisao = revVal
+      else       upd.proxima_revisao = null
+
+      const { error } = await sb.from('veiculos').update(upd).eq('id', veiculoId)
+      if(error) console.warn('Aviso veículo:', error.message)
+    }
+
+    closeModal('edit-modal')
+    await carregarOrdens()
+    alert('✅ Alterações salvas com sucesso!')
+  }catch(e){
+    alert('Erro ao salvar: '+e.message)
+  }
+}
+
+async function excluirOrdem(id){
+  if(currentPerfil!=='administrador') return
+  if(!confirm('Deseja excluir esta ordem permanentemente?'))return
+  try{await apiCall(`/api/ordens/${id}`,'DELETE');carregarOrdens()}
+  catch(e){alert('Erro: '+e.message)}
+}
+
+// ── IMPORTAR ──────────────────────────────────────────────────
+function handleFile(input){
+  const file=input.files[0];if(!file)return
+  if(file.name.endsWith('.csv')){
+    const r=new FileReader();r.onload=e=>processCSV(e.target.result);r.readAsText(file,'UTF-8')
+  }else{
+    const r=new FileReader();r.onload=e=>{
+      const wb=XLSX.read(e.target.result,{type:'binary',cellDates:true})
+      const ws=wb.Sheets[wb.SheetNames[0]]
+      // Pegar header da linha 1 (índice 0)
+      const allRows=XLSX.utils.sheet_to_json(ws,{header:1,raw:false,dateNF:'YYYY-MM-DD'})
+      const headerRow=allRows[0]
+      // Dados a partir da linha 5 (índice 4), pulando rótulos e exemplos
+      const dataRows=allRows.slice(4)
+      const rows=dataRows.map(row=>{
+        const obj={}
+        headerRow.forEach((h,i)=>{ obj[h]=row[i]!==undefined?row[i]:'' })
+        return obj
+      })
+      processImport(rows)
+    };r.readAsBinaryString(file)
+  }
+}
+function processCSV(text){
+  const lines=text.trim().split('\n')
+  const headers=lines[0].split(';').map(h=>h.trim().toLowerCase().replace(/ /g,'_'))
+  // Pula linha 2 (rótulos) e linhas de exemplo se tiver placa = 'ABC-1234'
+  const rows=lines.slice(1).map(l=>{const vals=l.split(';');const obj={};headers.forEach((h,i)=>obj[h]=(vals[i]||'').trim());return obj})
+    .filter(r=>r.placa&&r.placa!=='ABC-1234'&&r.placa!=='DEF-4321'&&r.placa!=='Placa *')
+  processImport(rows)
+}
+function processImport(rows){
+  // Filtrar linhas vazias e linhas de exemplo/cabeçalho
+  const dadosValidos=rows.filter(r=>{
+    const placa=(r.placa||'').toString().trim()
+    return placa && placa!=='Placa *' && placa!=='ABC-1234' && placa!=='DEF-4321' && placa!=='placa'
+  })
+  importBuffer=dadosValidos.map(r=>({
+    placa:(r.placa||'').toString().toUpperCase().trim(),
+    localidade:(r.localidade||'').toString().trim(),
+    supervisor:(r.supervisor||'').toString().trim(),
+    item:(r.item||'').toString().trim(),
+    nota_fiscal:(r.nota_fiscal||r.nf||'').toString().trim(),
+    data_ordem:parseData(r.data_ordem||r.data||'')||hoje(),
+    num_ordem:(r.num_ordem||'').toString().trim(),
+    link_ordem:(r.link_ordem||'').toString().trim(),
+    categoria:(r.categoria||'Serviço').toString().trim(),
+    fornecedor:(r.fornecedor||'').toString().trim(),
+    cnpj:(r.cnpj||'').toString().replace(/\D/g,'').replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/,'$1.$2.$3/$4-$5'),
+    valor_item:parseFloat((r.valor_item||'0').toString().replace(/[^\d,.-]/g,'').replace(',','.'))||0,
+    quantidade:parseInt(r.quantidade||1)||1,
+    km_atual:r.km_atual?parseInt(r.km_atual):null,
+    proxima_revisao:parseData(r.proxima_revisao||r.revisao||'')||null,
+    status:(r.status&&['Pendente','Em Preparação','Concluído','Cancelado'].includes(r.status))?r.status:'Pendente',origem:'Excel'
+  })).map(r=>({...r,valor_total:r.valor_item*r.quantidade}))
+  document.getElementById('import-count').textContent=`${importBuffer.length} registros encontrados`
+  if(!importBuffer.length){
+    document.getElementById('import-table').innerHTML='<tr><td colspan="10" style="text-align:center;padding:20px;color:#999">Nenhum dado válido encontrado. Verifique se preencheu a partir da linha 5 da planilha.</td></tr>'
+    document.getElementById('import-preview').style.display='block'
+    return
+  }
+  document.getElementById('import-table').innerHTML=importBuffer.map(r=>`<tr>
+    <td>${r.placa}</td><td>${r.localidade}</td><td>${r.item}</td><td>${r.nota_fiscal}</td>
+    <td>${r.num_ordem||'—'}</td><td>${r.categoria}</td><td>${r.fornecedor}</td>
+    <td>R$ ${r.valor_item.toFixed(2)}</td><td>${r.quantidade}</td><td>R$ ${r.valor_total.toFixed(2)}</td>
+  </tr>`).join('')
+  document.getElementById('import-preview').style.display='block'
+}
+function parseData(val){
+  if(!val||val===''||val==='null'||val==='undefined') return null
+  const s=val.toString().trim()
+  if(!s) return null
+  // Já está no formato YYYY-MM-DD
+  if(/^\d{4}-\d{2}-\d{2}$/.test(s)) return s
+  // ISO com hora: 2026-04-22T00:00:00 ou 2026-04-22 00:00:00
+  if(/^\d{4}-\d{2}-\d{2}[T ]/.test(s)) return s.substring(0,10)
+  // DD/MM/YYYY
+  if(/^\d{2}\/\d{2}\/\d{4}$/.test(s)){
+    const[d,m,y]=s.split('/');return`${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`
+  }
+  // D/M/YYYY ou DD/M/YYYY
+  if(/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(s)){
+    const[d,m,y]=s.split('/');return`${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`
+  }
+  // Número serial do Excel (ex: 46748)
+  if(/^\d{4,5}$/.test(s)){
+    const d=new Date(Math.round((parseInt(s)-25569)*86400*1000))
+    if(!isNaN(d)) return d.toISOString().split('T')[0]
+  }
+  // Objeto Date convertido para string pelo XLSX
+  try{
+    const d=new Date(s)
+    if(!isNaN(d.getTime())) return d.toISOString().split('T')[0]
+  }catch(e){}
+  return null
+}
+
+function hoje(){return new Date().toISOString().split('T')[0]}
+
+async function confirmarImport(){
+  if(currentPerfil!=='administrador'){alert('Sem permissão.');return}
+  if(!importBuffer.length)return
+  // Debug: mostrar o que vai ser enviado
+  console.log('Importando:', JSON.stringify(importBuffer[0], null, 2))
+  let ok=0,erros=[],msgErros=[]
+  for(const r of importBuffer){
+    // Garantir data_ordem nunca nula
+    const payload={...r, data_ordem: r.data_ordem||hoje()}
+    try{
+      await apiCall('/api/ordens','POST',payload)
+      ok++
+    }catch(e){
+      erros.push(1)
+      msgErros.push(`Placa ${r.placa}: ${e.message}`)
+    }
+  }
+  let msg=`Importação concluída!\n✓ ${ok} ordens salvas\n✗ ${erros.length} erros`
+  if(msgErros.length) msg+='\n\nDetalhes:\n'+msgErros.join('\n')
+  alert(msg)
+  importBuffer=[]
+  document.getElementById('import-preview').style.display='none'
+  document.getElementById('excel-input').value=''
+  if(ok>0) showPage('ordens')
+}
+function cancelarImport(){importBuffer=[];document.getElementById('import-preview').style.display='none';document.getElementById('excel-input').value=''}
+function handleDrop(e){e.preventDefault();const file=e.dataTransfer.files[0];if(file)handleFile({files:[file]})}
+
+document.querySelectorAll('.modal-overlay').forEach(m=>{m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('open')})})
+</script>
+</body>
+</html>

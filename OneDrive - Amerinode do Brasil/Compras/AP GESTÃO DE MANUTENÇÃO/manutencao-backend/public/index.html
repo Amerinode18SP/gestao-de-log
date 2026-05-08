@@ -618,7 +618,12 @@ tr:hover td{background:#F9F9F9}
       <div class="card">
         <div class="card-header">
           <span class="card-title">Lista de Manutenções</span>
-          <button class="btn btn-primary" onclick="abrirNovaManutencao()">+ Novo Registro</button>
+          <div style="display:flex;gap:8px">
+            <button class="btn" onclick="baixarTemplateManutencao()" title="Baixar planilha modelo">⬇ Template</button>
+            <button class="btn" onclick="document.getElementById('man-excel-input').click()">📥 Importar Excel</button>
+            <input type="file" id="man-excel-input" accept=".xlsx" style="display:none" onchange="importarExcelManutencao(this)">
+            <button class="btn btn-primary" onclick="abrirNovaManutencao()">+ Novo Registro</button>
+          </div>
         </div>
         <!-- Filtros -->
         <div class="form-grid" style="margin-bottom:12px">
@@ -740,6 +745,17 @@ tr:hover td{background:#F9F9F9}
     <div style="display:flex;gap:8px;margin-top:16px;padding-top:16px;border-top:1px solid #EEE">
       <button class="btn btn-primary" onclick="confirmarConversao()">Criar Ordem de Compra</button>
       <button class="btn" onclick="closeModal('modal-converter-ordem')">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL RESULTADO IMPORTAÇÃO MANUTENÇÃO -->
+<div class="modal-overlay" id="modal-man-import-result">
+  <div class="modal" style="max-width:540px">
+    <h3>Resultado da Importação</h3>
+    <div id="man-import-result-body" style="font-size:13px;line-height:1.7"></div>
+    <div style="margin-top:16px;padding-top:16px;border-top:1px solid #EEE">
+      <button class="btn btn-primary" onclick="closeModal('modal-man-import-result')">Fechar</button>
     </div>
   </div>
 </div>
@@ -2520,6 +2536,107 @@ async function confirmarConversao(){
     alert(`✅ Ordem de compra criada com sucesso!\nID: ${r.ordem?.id||''}`)
     carregarManutencao()
   }catch(e){alert('Erro ao converter: '+e.message)}
+}
+
+// ── Importar Excel de manutenções ────────────────────────────
+async function importarExcelManutencao(input){
+  const file = input.files[0]
+  if(!file) return
+  input.value=''
+
+  const btn=document.querySelector('button[onclick*="man-excel-input"]')
+  const orig=btn.textContent
+  btn.textContent='⏳ Importando...'
+  btn.disabled=true
+
+  try{
+    const token=(await sb.auth.getSession())?.data?.session?.access_token||''
+    const fd=new FormData()
+    fd.append('arquivo',file)
+
+    const resp=await fetch(`${API}/api/manutencao/importar`,{
+      method:'POST',
+      headers:token?{Authorization:`Bearer ${token}`}:{},
+      body:fd
+    })
+    const r=await resp.json()
+    if(!resp.ok) throw new Error(r.error||'Erro na importação')
+
+    // Montar resultado
+    let html=`<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:16px">
+      <div style="background:#EAF3DE;border-radius:8px;padding:12px;text-align:center">
+        <div style="font-size:22px;font-weight:600;color:#27500A">${r.importados}</div>
+        <div style="font-size:11px;color:#555">Importados</div>
+      </div>
+      <div style="background:#FCEBEB;border-radius:8px;padding:12px;text-align:center">
+        <div style="font-size:22px;font-weight:600;color:#791F1F">${r.erros_count}</div>
+        <div style="font-size:11px;color:#555">Erros</div>
+      </div>
+      <div style="background:#F0F4F9;border-radius:8px;padding:12px;text-align:center">
+        <div style="font-size:22px;font-weight:600;color:#1E3A5F">${r.total_linhas}</div>
+        <div style="font-size:11px;color:#555">Total linhas</div>
+      </div>
+    </div>`
+
+    if(r.erros&&r.erros.length){
+      html+=`<p style="font-weight:500;margin-bottom:6px;color:#791F1F">Erros encontrados:</p>
+      <div style="max-height:180px;overflow-y:auto;background:#FFF8F8;border:1px solid #F5BBBB;border-radius:6px;padding:8px">`
+      html+=r.erros.map(e=>`<div style="font-size:12px;padding:3px 0;border-bottom:1px solid #FEE">Linha ${e.linha}: ${esc(e.erro)}</div>`).join('')
+      html+=`</div>`
+    }
+
+    document.getElementById('man-import-result-body').innerHTML=html
+    showModal('modal-man-import-result')
+    if(r.importados>0) carregarManutencao()
+  }catch(e){
+    alert('Erro ao importar: '+e.message)
+  }finally{
+    btn.textContent=orig
+    btn.disabled=false
+  }
+}
+
+// ── Template Excel para manutenção ───────────────────────────
+function baixarTemplateManutencao(){
+  const wb=XLSX.utils.book_new()
+
+  const headers=['placa','modelo','localidade','supervisor','data_entrada_na_oficina','data_saida_da_oficina','previsao_de_retorno','dias_previstos_na_oficina','tipo_de_manutencao','veiculo_alugado','veiculo_devolvido','data_devolucao_veic_alugado','status','no_os_sinistro','observacoes']
+  const labels=['Placa *','Modelo','Localidade','Supervisor','Data Entrada na Oficina *','Data Saída da Oficina','Previsão de Retorno','Dias Previstos','Tipo de Manutenção','Veículo Alugado? (Sim/Não)','Veículo Devolvido? (Sim/Não)','Data Devolução Veíc. Alugado','Status','Nº OS / Sinistro','Observações']
+  const ex1=['FCA2C14','KWID','Sorocaba','Walter','04/05/2026','07/05/2026','08/05/2026','4','Corretiva','Sim','Sim','07/05/2026','Retornado','OS-1234','Troca de pastilhas']
+  const ex2=['PLP7I64','IVECO','Jundiaí','Matheus','27/04/2026','','12/05/2026','15','Corretiva','','','','Em Andamento','SIN-987','Sinistro lateral']
+
+  const ws=XLSX.utils.aoa_to_sheet([headers,labels,ex1,ex2])
+  ws['!cols']=headers.map(()=>({wch:22}))
+  XLSX.utils.book_append_sheet(wb,ws,'manutencao')
+
+  // Aba de instruções
+  const inst=[
+    ['INSTRUÇÕES — Importação de Manutenções'],[''],
+    ['REGRAS GERAIS'],
+    ['• Preencha os dados a partir da LINHA 3 (não altere linhas 1 e 2)'],
+    ['• Salve como .xlsx antes de importar'],[''],
+    ['CAMPO','OBRIGATÓRIO?','VALORES ACEITOS'],
+    ['placa','Sim','Texto livre. Ex: ABC1234'],
+    ['modelo','Não','Texto livre. Ex: KWID, FIORINO'],
+    ['localidade','Não','Cidade ou filial'],
+    ['supervisor','Não','Nome do supervisor'],
+    ['data_entrada_na_oficina','Sim','DD/MM/AAAA'],
+    ['data_saida_da_oficina','Não','DD/MM/AAAA — deixar vazio se ainda na oficina'],
+    ['previsao_de_retorno','Não','DD/MM/AAAA'],
+    ['dias_previstos_na_oficina','Não','Número inteiro. Ex: 5'],
+    ['tipo_de_manutencao','Não','Corretiva | Preventiva | Revisão | Sinistro | Outro'],
+    ['veiculo_alugado','Não','Sim ou deixar vazio'],
+    ['veiculo_devolvido','Não','Sim ou deixar vazio'],
+    ['data_devolucao_veic_alugado','Não','DD/MM/AAAA'],
+    ['status','Não','Em Andamento | Retornado | Cancelado (padrão: Em Andamento)'],
+    ['no_os_sinistro','Não','Número da OS ou sinistro'],
+    ['observacoes','Não','Texto livre'],
+  ]
+  const wsInst=XLSX.utils.aoa_to_sheet(inst)
+  wsInst['!cols']=[{wch:35},{wch:15},{wch:50}]
+  XLSX.utils.book_append_sheet(wb,wsInst,'instrucoes')
+
+  XLSX.writeFile(wb,'template_manutencao.xlsx')
 }
 
 document.querySelectorAll('.modal-overlay').forEach(m=>{m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('open')})})

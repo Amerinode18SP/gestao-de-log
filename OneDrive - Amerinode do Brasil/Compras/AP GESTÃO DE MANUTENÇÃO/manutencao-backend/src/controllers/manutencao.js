@@ -1,4 +1,5 @@
 const supabase = require('../supabase')
+const XLSX     = require('xlsx')
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function parseData(valor) {
@@ -395,8 +396,127 @@ async function serieDash(req, res) {
   }
 }
 
+// ── Importar Excel de manutenções ────────────────────────────────────────────
+function normalizarChave(str) {
+  return str
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .toLowerCase().trim()
+    .replace(/[^\w\s]/g, '')   // remove pontuação
+    .replace(/\s+/g, '_')
+}
+
+function normalizeStatus(raw) {
+  if (!raw) return 'Em Andamento'
+  const s = raw.toString().replace(/[^\w\sÀ-ÿ]/gu, '').trim().toLowerCase()
+  if (s.includes('retorn')) return 'Retornado'
+  if (s.includes('cancel')) return 'Cancelado'
+  return 'Em Andamento'
+}
+
+function parseBool(val) {
+  if (!val) return false
+  return /^s(im)?$/i.test(String(val).trim())
+}
+
+async function importarManutencao(req, res) {
+  try {
+    if (!req.file) return res.status(400).json({ error: 'Nenhum arquivo enviado.' })
+
+    const wb   = XLSX.read(req.file.buffer, { type: 'buffer', cellDates: false })
+    const ws   = wb.Sheets[wb.SheetNames[0]]
+
+    // Detectar linha de cabeçalho: pular linhas de título mescladas
+    // Força leitura a partir da primeira linha que contém "placa" (case-insensitive)
+    const range = XLSX.utils.decode_range(ws['!ref'] || 'A1:Z100')
+    let headerRow = range.s.r
+    for (let r = range.s.r; r <= Math.min(range.s.r + 5, range.e.r); r++) {
+      const cell = ws[XLSX.utils.encode_cell({ r, c: 0 })]
+      if (cell && /placa/i.test(String(cell.v || ''))) { headerRow = r; break }
+    }
+
+    const rows = XLSX.utils.sheet_to_json(ws, { defval: '', range: headerRow })
+
+    if (!rows.length) return res.status(400).json({ error: 'Arquivo vazio ou sem dados.' })
+
+    const normalizado = rows.map(row => {
+      const obj = {}
+      for (const k of Object.keys(row)) obj[normalizarChave(k)] = row[k]
+      return obj
+    })
+
+    const erros    = []
+    const inseridos = []
+
+    for (let i = 0; i < normalizado.length; i++) {
+      const r   = normalizado[i]
+      const lin = headerRow + i + 2
+
+      // Pular linhas totalmente vazias
+      if (!r.placa && !r.data_entrada_na_oficina) continue
+
+      if (!r.placa) {
+        erros.push({ linha: lin, erro: 'Campo obrigatório faltando: placa' })
+        continue
+      }
+
+      // Mapear colunas do Excel para o schema
+      const dataEntrada = parseData(r.data_entrada_na_oficina || r.data_entrada)
+      if (!dataEntrada) {
+        erros.push({ linha: lin, erro: `Placa ${r.placa}: data de entrada inválida ou ausente` })
+        continue
+      }
+
+      // Tipo: normalizar emojis e variações
+      let tipo = (r.tipo_de_manutencao || r.tipo_manutencao || 'Corretiva').toString().trim()
+      const tiposValidos = ['Corretiva','Preventiva','Revisão','Sinistro','Outro']
+      if (!tiposValidos.includes(tipo)) tipo = 'Corretiva'
+
+      const payload = {
+        placa:             r.placa.toString().toUpperCase().trim(),
+        modelo:            r.modelo ? r.modelo.toString().trim() : null,
+        localidade:        r.localidade ? r.localidade.toString().trim() : null,
+        supervisor:        r.supervisor ? r.supervisor.toString().trim() : null,
+        data_entrada:      dataEntrada,
+        data_saida:        parseData(r.data_saida_da_oficina || r.data_saida),
+        previsao_retorno:  parseData(r.previsao_de_retorno || r.previsao_retorno),
+        dias_previstos:    r.dias_previstos_na_oficina ? parseInt(r.dias_previstos_na_oficina) : null,
+        tipo_manutencao:   tipo,
+        veiculo_alugado:   parseBool(r.veiculo_alugado),
+        veiculo_devolvido: parseBool(r.veiculo_devolvido),
+        data_devolucao:    parseData(r.data_devolucao_veic_alugado || r.data_devolucao),
+        num_os:            r.no_os_sinistro || r.num_os || r.no_os ? String(r.no_os_sinistro || r.num_os || r.no_os).trim() : null,
+        status:            normalizeStatus(r.status),
+        observacoes:       r.observacoes ? r.observacoes.toString().trim() : null,
+        convertido_ordem:  false
+      }
+
+      try {
+        const { data, error } = await supabase
+          .from('manutencoes')
+          .insert(payload)
+          .select()
+          .single()
+        if (error) throw error
+        inseridos.push(data)
+      } catch (err) {
+        erros.push({ linha: lin, erro: `Placa ${payload.placa}: ${err.message}` })
+      }
+    }
+
+    res.json({
+      total_linhas: normalizado.filter(r => r.placa || r.data_entrada_na_oficina).length,
+      importados:   inseridos.length,
+      erros_count:  erros.length,
+      erros,
+      data:         inseridos
+    })
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+}
+
 module.exports = {
   listar, buscarPorId, criar, atualizar, excluir,
-  converterEmOrdem,
+  converterEmOrdem, importarManutencao,
   resumoDash, rankingsDash, serieDash
 }

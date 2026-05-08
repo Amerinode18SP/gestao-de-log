@@ -618,30 +618,38 @@ tr:hover td{background:#F9F9F9}
       <div class="card">
         <div class="card-header">
           <span class="card-title">Lista de Manutenções</span>
-          <div style="display:flex;gap:8px">
-            <button class="btn" onclick="baixarTemplateManutencao()" title="Baixar planilha modelo">⬇ Template</button>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="btn" onclick="exportarManutencaoXLSX()">⬇ XLSX</button>
+            <button class="btn" onclick="exportarManutencaoPDF()">⬇ PDF</button>
+            <button class="btn" onclick="baixarTemplateManutencao()" title="Baixar planilha modelo">📄 Template</button>
             <button class="btn" onclick="document.getElementById('man-excel-input').click()">📥 Importar Excel</button>
             <input type="file" id="man-excel-input" accept=".xlsx" style="display:none" onchange="importarExcelManutencao(this)">
             <button class="btn btn-primary" onclick="abrirNovaManutencao()">+ Novo Registro</button>
           </div>
         </div>
         <!-- Filtros -->
-        <div class="form-grid" style="margin-bottom:12px">
+        <div style="display:grid;grid-template-columns:repeat(3,1fr) repeat(2,1fr);gap:10px;margin-bottom:12px;align-items:end">
           <div class="form-group"><label>Status</label>
-            <select id="man-f-status" onchange="carregarManutencao()">
+            <select id="man-f-status" onchange="carregarManLista(1)">
               <option value="">Todos</option>
               <option value="Em Andamento">Em Andamento</option>
               <option value="Retornado">Retornado</option>
               <option value="Cancelado">Cancelado</option>
             </select>
           </div>
-          <div class="form-group"><label>Placa</label><input id="man-f-placa" placeholder="Buscar placa..." oninput="carregarManutencao()"></div>
-          <div class="form-group"><label>Localidade</label><input id="man-f-localidade" placeholder="Filtrar..." oninput="carregarManutencao()"></div>
+          <div class="form-group"><label>Placa</label><input id="man-f-placa" placeholder="Buscar placa..." oninput="carregarManLista(1)"></div>
+          <div class="form-group"><label>Localidade</label><input id="man-f-localidade" placeholder="Filtrar..." oninput="carregarManLista(1)"></div>
           <div class="form-group"><label>Tipo</label>
-            <select id="man-f-tipo" onchange="carregarManutencao()">
+            <select id="man-f-tipo" onchange="carregarManLista(1)">
               <option value="">Todos</option>
               <option>Corretiva</option><option>Preventiva</option><option>Revisão</option><option>Sinistro</option><option>Outro</option>
             </select>
+          </div>
+          <div class="form-group"><label>Data entrada</label>
+            <div style="display:flex;gap:4px">
+              <input type="date" id="man-f-data-ini" oninput="carregarManLista(1)" placeholder="De" style="flex:1">
+              <input type="date" id="man-f-data-fim" oninput="carregarManLista(1)" placeholder="Até" style="flex:1">
+            </div>
           </div>
         </div>
         <div class="table-wrap">
@@ -655,6 +663,23 @@ tr:hover td{background:#F9F9F9}
           </table>
         </div>
         <div id="man-pag" style="display:flex;gap:8px;align-items:center;justify-content:flex-end;margin-top:12px"></div>
+      </div>
+
+      <!-- Histórico por Placa -->
+      <div class="card" id="man-historico-card" style="display:none">
+        <div class="card-header">
+          <span class="card-title">📋 Histórico — <span id="man-hist-placa"></span></span>
+          <button class="btn" onclick="fecharHistorico()">✕ Fechar</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr>
+              <th>Entrada</th><th>Saída</th><th>Dias</th><th>Tipo</th><th>Status</th>
+              <th>Alugado</th><th>Supervisor</th><th>Nº OS</th><th>Obs.</th><th>OC?</th>
+            </tr></thead>
+            <tbody id="man-hist-table"></tbody>
+          </table>
+        </div>
       </div>
 
     </div><!-- /page-manutencao -->
@@ -2350,12 +2375,16 @@ async function carregarManLista(pg){
   const placa=document.getElementById('man-f-placa').value.trim()
   const localidade=document.getElementById('man-f-localidade').value.trim()
   const tipo=document.getElementById('man-f-tipo').value
+  const dataIni=document.getElementById('man-f-data-ini').value
+  const dataFim=document.getElementById('man-f-data-fim').value
 
   let qs=`page=${manPage}&limit=20`
-  if(status) qs+=`&status=${encodeURIComponent(status)}`
-  if(placa)  qs+=`&placa=${encodeURIComponent(placa)}`
+  if(status)   qs+=`&status=${encodeURIComponent(status)}`
+  if(placa)    qs+=`&placa=${encodeURIComponent(placa)}`
   if(localidade) qs+=`&localidade=${encodeURIComponent(localidade)}`
-  if(tipo)   qs+=`&tipo_manutencao=${encodeURIComponent(tipo)}`
+  if(tipo)     qs+=`&tipo_manutencao=${encodeURIComponent(tipo)}`
+  if(dataIni)  qs+=`&data_inicio=${dataIni}`
+  if(dataFim)  qs+=`&data_fim=${dataFim}`
 
   try{
     const r=await apiCall(`/api/manutencao?${qs}`)
@@ -2376,7 +2405,7 @@ async function carregarManLista(pg){
         const obs=m.observacoes?`<span title="${esc(m.observacoes)}" style="cursor:help">📝</span>`:'—'
         const canConvert=m.status!=='Cancelado'&&!m.convertido_ordem
         return `<tr>
-          <td><strong>${m.placa}</strong></td>
+          <td><strong style="cursor:pointer;color:#0C447C;text-decoration:underline" onclick="verHistorico('${m.placa}')" title="Ver histórico desta placa">${m.placa}</strong></td>
           <td>${m.modelo||'—'}</td>
           <td>${m.localidade||'—'}</td>
           <td>${m.supervisor||'—'}</td>
@@ -2536,6 +2565,245 @@ async function confirmarConversao(){
     alert(`✅ Ordem de compra criada com sucesso!\nID: ${r.ordem?.id||''}`)
     carregarManutencao()
   }catch(e){alert('Erro ao converter: '+e.message)}
+}
+
+// ── Histórico por placa ───────────────────────────────────────
+async function verHistorico(placa){
+  const card=document.getElementById('man-historico-card')
+  const tb=document.getElementById('man-hist-table')
+  document.getElementById('man-hist-placa').textContent=placa
+  card.style.display='block'
+  card.scrollIntoView({behavior:'smooth',block:'start'})
+  tb.innerHTML=`<tr><td colspan="10" class="loading"><span class="spinner"></span>Carregando...</td></tr>`
+  try{
+    const r=await apiCall(`/api/manutencao?placa=${encodeURIComponent(placa)}&limit=100`)
+    const rows=r.data||[]
+    if(!rows.length){tb.innerHTML=`<tr><td colspan="10" class="empty">Nenhum registro encontrado.</td></tr>`;return}
+    tb.innerHTML=rows.map(m=>{
+      const stBadge=m.status==='Em Andamento'?`<span class="badge badge-amber">🔧 Em Andamento</span>`
+        :m.status==='Retornado'?`<span class="badge badge-green">✅ Retornado</span>`
+        :`<span class="badge badge-gray">Cancelado</span>`
+      return `<tr>
+        <td>${fmtData(m.data_entrada)}</td>
+        <td>${m.data_saida?fmtData(m.data_saida):'—'}</td>
+        <td>${m.dias_efetivos!=null?m.dias_efetivos:'—'}</td>
+        <td><span class="badge badge-gray">${m.tipo_manutencao||'—'}</span></td>
+        <td>${stBadge}</td>
+        <td>${m.veiculo_alugado?'Sim':'Não'}</td>
+        <td>${m.supervisor||'—'}</td>
+        <td>${m.num_os||'—'}</td>
+        <td>${m.observacoes?`<span title="${esc(m.observacoes)}" style="cursor:help">📝</span>`:'—'}</td>
+        <td>${m.convertido_ordem?`<span class="badge badge-green">Sim</span>`:'—'}</td>
+      </tr>`
+    }).join('')
+  }catch(e){tb.innerHTML=`<tr><td colspan="10" class="empty">Erro: ${e.message}</td></tr>`}
+}
+
+function fecharHistorico(){
+  document.getElementById('man-historico-card').style.display='none'
+}
+
+// ── Exportar XLSX ──────────────────────────────────────────────
+async function exportarManutencaoXLSX(){
+  try{
+    // Buscar todos com filtros atuais (sem paginação)
+    const status=document.getElementById('man-f-status').value
+    const placa=document.getElementById('man-f-placa').value.trim()
+    const localidade=document.getElementById('man-f-localidade').value.trim()
+    const tipo=document.getElementById('man-f-tipo').value
+    const dataIni=document.getElementById('man-f-data-ini').value
+    const dataFim=document.getElementById('man-f-data-fim').value
+
+    let qs='limit=1000&page=1'
+    if(status) qs+=`&status=${encodeURIComponent(status)}`
+    if(placa)  qs+=`&placa=${encodeURIComponent(placa)}`
+    if(localidade) qs+=`&localidade=${encodeURIComponent(localidade)}`
+    if(tipo)   qs+=`&tipo_manutencao=${encodeURIComponent(tipo)}`
+    if(dataIni) qs+=`&data_inicio=${dataIni}`
+    if(dataFim) qs+=`&data_fim=${dataFim}`
+
+    const [lista, kpi, rankLoc, rankSup, rankTipo] = await Promise.all([
+      apiCall(`/api/manutencao?${qs}`),
+      apiCall('/api/manutencao/dashboard/resumo'),
+      apiCall('/api/manutencao/dashboard/rankings?tipo=localidade&limit=20'),
+      apiCall('/api/manutencao/dashboard/rankings?tipo=supervisor&limit=20'),
+      apiCall('/api/manutencao/dashboard/rankings?tipo=tipo&limit=10')
+    ])
+
+    const wb=XLSX.utils.book_new()
+    const stamp=new Date().toLocaleString('pt-BR')
+
+    // ── Aba 1: Resumo KPIs ──
+    const resumoRows=[
+      ['CONTROLE EM MANUTENÇÃO — Resumo'],
+      [`Gerado em: ${stamp}`],[''],
+      ['Indicador','Valor'],
+      ['Em Andamento',kpi.emAndamento||0],
+      ['Alugados Ativos',kpi.alugadosAtivos||0],
+      ['Em Atraso',kpi.emAtraso||0],
+      ['Retornados no Mês',kpi.retornadosMes||0],
+      ['Média de Dias na Oficina',kpi.mediaDias||0],
+    ]
+    const wsRes=XLSX.utils.aoa_to_sheet(resumoRows)
+    wsRes['!cols']=[{wch:30},{wch:15}]
+    XLSX.utils.book_append_sheet(wb,wsRes,'Resumo')
+
+    // ── Aba 2: Lista completa ──
+    const head=[['Placa','Modelo','Localidade','Supervisor','Entrada','Previsão Retorno','Saída','Dias','Tipo','Alugado','Devolvido','Status','Nº OS','Obs.','Convertido OC']]
+    const rows2=(lista.data||[]).map(m=>[
+      m.placa,m.modelo||'',m.localidade||'',m.supervisor||'',
+      m.data_entrada||'',m.previsao_retorno||'',m.data_saida||'',
+      m.dias_efetivos!=null?m.dias_efetivos:'',
+      m.tipo_manutencao||'',
+      m.veiculo_alugado?'Sim':'Não',
+      m.veiculo_devolvido?'Sim':'Não',
+      m.status||'',m.num_os||'',m.observacoes||'',
+      m.convertido_ordem?'Sim':'Não'
+    ])
+    const wsLista=XLSX.utils.aoa_to_sheet([...head,...rows2])
+    wsLista['!cols']=[{wch:10},{wch:12},{wch:15},{wch:15},{wch:12},{wch:16},{wch:12},{wch:6},{wch:12},{wch:8},{wch:10},{wch:14},{wch:14},{wch:30},{wch:14}]
+    XLSX.utils.book_append_sheet(wb,wsLista,'Lista completa')
+
+    // ── Aba 3: Por Localidade ──
+    const wsLoc=XLSX.utils.aoa_to_sheet([['Localidade','Qtd'],
+      ...(rankLoc||[]).map(r=>[r.label,r.qtd])])
+    wsLoc['!cols']=[{wch:20},{wch:8}]
+    XLSX.utils.book_append_sheet(wb,wsLoc,'Por Localidade')
+
+    // ── Aba 4: Por Supervisor ──
+    const wsSup=XLSX.utils.aoa_to_sheet([['Supervisor','Qtd'],
+      ...(rankSup||[]).map(r=>[r.label,r.qtd])])
+    wsSup['!cols']=[{wch:20},{wch:8}]
+    XLSX.utils.book_append_sheet(wb,wsSup,'Por Supervisor')
+
+    // ── Aba 5: Por Tipo ──
+    const wsTipo=XLSX.utils.aoa_to_sheet([['Tipo','Qtd'],
+      ...(rankTipo||[]).map(r=>[r.label,r.qtd])])
+    wsTipo['!cols']=[{wch:15},{wch:8}]
+    XLSX.utils.book_append_sheet(wb,wsTipo,'Por Tipo')
+
+    const fname=`manutencao_${new Date().toISOString().split('T')[0]}.xlsx`
+    XLSX.writeFile(wb,fname)
+  }catch(e){alert('Erro ao exportar XLSX: '+e.message)}
+}
+
+// ── Exportar PDF ───────────────────────────────────────────────
+async function exportarManutencaoPDF(){
+  const {jsPDF}=window.jspdf
+  const doc=new jsPDF({orientation:'landscape',unit:'mm',format:'a4'})
+  const W=doc.internal.pageSize.getWidth()
+  const H=doc.internal.pageSize.getHeight()
+  const M=12, stamp=new Date().toLocaleString('pt-BR')
+
+  try{
+    // Buscar dados com filtros atuais
+    const status=document.getElementById('man-f-status').value
+    const placa=document.getElementById('man-f-placa').value.trim()
+    const localidade=document.getElementById('man-f-localidade').value.trim()
+    const tipo=document.getElementById('man-f-tipo').value
+    const dataIni=document.getElementById('man-f-data-ini').value
+    const dataFim=document.getElementById('man-f-data-fim').value
+
+    let qs='limit=500&page=1'
+    if(status) qs+=`&status=${encodeURIComponent(status)}`
+    if(placa)  qs+=`&placa=${encodeURIComponent(placa)}`
+    if(localidade) qs+=`&localidade=${encodeURIComponent(localidade)}`
+    if(tipo)   qs+=`&tipo_manutencao=${encodeURIComponent(tipo)}`
+    if(dataIni) qs+=`&data_inicio=${dataIni}`
+    if(dataFim) qs+=`&data_fim=${dataFim}`
+
+    const [lista, kpi, rankLoc, rankSup] = await Promise.all([
+      apiCall(`/api/manutencao?${qs}`),
+      apiCall('/api/manutencao/dashboard/resumo'),
+      apiCall('/api/manutencao/dashboard/rankings?tipo=localidade&limit=10'),
+      apiCall('/api/manutencao/dashboard/rankings?tipo=supervisor&limit=10')
+    ])
+
+    // ── Cabeçalho ──
+    doc.setFillColor(30,58,95); doc.rect(0,0,W,18,'F')
+    doc.setTextColor(255,255,255); doc.setFontSize(12); doc.setFont(undefined,'bold')
+    doc.text('🔧 Controle em Manutenção Veicular',M,12)
+    doc.setFontSize(8); doc.setFont(undefined,'normal')
+    doc.text(`Gerado em: ${stamp}`,W-M,12,{align:'right'})
+    doc.setTextColor(0,0,0)
+
+    let y=26
+
+    // ── KPI Cards ──
+    const kpis=[
+      {label:'Em Andamento',val:kpi.emAndamento||0,cor:[250,238,218]},
+      {label:'Alugados Ativos',val:kpi.alugadosAtivos||0,cor:[230,241,251]},
+      {label:'Em Atraso',val:kpi.emAtraso||0,cor:[252,235,235]},
+      {label:'Retornados/Mês',val:kpi.retornadosMes||0,cor:[234,243,222]},
+      {label:'Média Dias',val:(kpi.mediaDias||0)+' d',cor:[241,239,232]}
+    ]
+    const cW=(W-M*2)/kpis.length-3
+    kpis.forEach((k,i)=>{
+      const x=M+i*(cW+3)
+      doc.setFillColor(...k.cor); doc.roundedRect(x,y,cW,14,2,2,'F')
+      doc.setFontSize(7); doc.setTextColor(80,80,80)
+      doc.text(k.label,x+cW/2,y+5,{align:'center'})
+      doc.setFontSize(13); doc.setFont(undefined,'bold'); doc.setTextColor(30,58,95)
+      doc.text(String(k.val),x+cW/2,y+11,{align:'center'})
+      doc.setFont(undefined,'normal')
+    })
+    y+=20
+
+    // ── Rankings lado a lado ──
+    const halfW=(W-M*2)/2-3
+    const rankHead=[['#','Localidade','Qtd']]
+    const rankRows=(rankLoc||[]).map((r,i)=>[i+1,r.label||'',r.qtd])
+    doc.autoTable({
+      startY:y, margin:{left:M}, tableWidth:halfW,
+      head:rankHead, body:rankRows,
+      headStyles:{fillColor:[30,58,95],textColor:255,fontSize:8},
+      bodyStyles:{fontSize:8}, alternateRowStyles:{fillColor:[245,247,250]},
+      columnStyles:{0:{cellWidth:8},2:{cellWidth:12}},
+      didDrawPage:()=>{}
+    })
+    const rankHead2=[['#','Supervisor','Qtd']]
+    const rankRows2=(rankSup||[]).map((r,i)=>[i+1,r.label||'',r.qtd])
+    doc.autoTable({
+      startY:y, margin:{left:M+halfW+6}, tableWidth:halfW,
+      head:rankHead2, body:rankRows2,
+      headStyles:{fillColor:[30,58,95],textColor:255,fontSize:8},
+      bodyStyles:{fontSize:8}, alternateRowStyles:{fillColor:[245,247,250]},
+      columnStyles:{0:{cellWidth:8},2:{cellWidth:12}},
+    })
+    y=doc.lastAutoTable.finalY+6
+
+    // ── Tabela principal ──
+    if(y>H-40){doc.addPage();y=M}
+    doc.setFontSize(9); doc.setFont(undefined,'bold')
+    doc.text('Lista de Manutenções',M,y); y+=4
+    doc.setFont(undefined,'normal')
+
+    const mainHead=[['Placa','Modelo','Localidade','Supervisor','Entrada','Prev. Retorno','Dias','Tipo','Alugado','Status','Nº OS']]
+    const mainRows=(lista.data||[]).map(m=>[
+      m.placa||'', m.modelo||'', m.localidade||'', m.supervisor||'',
+      fmtData(m.data_entrada), m.previsao_retorno?fmtData(m.previsao_retorno):'—',
+      m.dias_efetivos!=null?m.dias_efetivos:'—',
+      m.tipo_manutencao||'',
+      m.veiculo_alugado?'Sim':'Não',
+      m.status||'', m.num_os||''
+    ])
+
+    doc.autoTable({
+      startY:y, margin:{left:M,right:M},
+      head:mainHead, body:mainRows,
+      headStyles:{fillColor:[30,58,95],textColor:255,fontSize:7},
+      bodyStyles:{fontSize:7},
+      alternateRowStyles:{fillColor:[245,247,250]},
+      didDrawPage:(data)=>{
+        // rodapé
+        doc.setFontSize(7); doc.setTextColor(150)
+        doc.text(`Pág ${data.pageNumber}`,W/2,H-6,{align:'center'})
+        doc.setTextColor(0)
+      }
+    })
+
+    doc.save(`manutencao_${new Date().toISOString().split('T')[0]}.pdf`)
+  }catch(e){alert('Erro ao gerar PDF: '+e.message);console.error(e)}
 }
 
 // ── Importar Excel de manutenções ────────────────────────────

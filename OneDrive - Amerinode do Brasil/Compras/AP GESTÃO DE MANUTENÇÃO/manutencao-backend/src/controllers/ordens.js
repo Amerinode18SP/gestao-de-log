@@ -1,5 +1,19 @@
 const supabase = require('../supabase')
 
+// Tenta operação; se Postgres reportar coluna ausente, refaz sem ela.
+async function tentarSemColunaFaltante(payload, fn) {
+  let r = await fn(payload)
+  let p = payload
+  while (r.error && /Could not find the '([^']+)' column/.test(r.error.message)) {
+    const col = r.error.message.match(/Could not find the '([^']+)' column/)[1]
+    if (!(col in p)) break
+    p = { ...p }
+    delete p[col]
+    r = await fn(p)
+  }
+  return r
+}
+
 // ── Listar ordens (com filtros) ───────────────────────────────────────────────
 async function listar(req, res) {
   try {
@@ -66,20 +80,6 @@ async function criar(req, res) {
       observacao,
       status = 'Pendente', origem = 'Manual'
     } = req.body
-
-    // Helper: tenta operação; se erro indicar coluna faltante, refaz sem ela
-    async function tentarSemColunaFaltante(payload, fn) {
-      let r = await fn(payload)
-      let p = payload
-      while (r.error && /Could not find the '([^']+)' column/.test(r.error.message)) {
-        const col = r.error.message.match(/Could not find the '([^']+)' column/)[1]
-        if (!(col in p)) break
-        p = { ...p }
-        delete p[col]
-        r = await fn(p)
-      }
-      return r
-    }
 
     // 1. Upsert veículo
     const veiculoPayload = { placa: placa.toUpperCase(), localidade, km_atual, proxima_revisao }
@@ -165,7 +165,9 @@ async function atualizar(req, res) {
       if (proxima_revisao !== undefined)  veiculoUpdate.proxima_revisao = proxima_revisao || null
       if (observacao_veiculo !== undefined) veiculoUpdate.observacao = observacao_veiculo || null
       if (Object.keys(veiculoUpdate).length > 1) {
-        await supabase.from('veiculos').update(veiculoUpdate).eq('id', ordemAtual.veiculo_id)
+        await tentarSemColunaFaltante(veiculoUpdate, p =>
+          supabase.from('veiculos').update(p).eq('id', ordemAtual.veiculo_id)
+        )
       }
     }
 
@@ -174,17 +176,16 @@ async function atualizar(req, res) {
       const fornecedorUpdate = { updated_at: new Date().toISOString() }
       if (fornecedor) fornecedorUpdate.razao_social = fornecedor
       if (observacao_fornecedor !== undefined) fornecedorUpdate.observacao = observacao_fornecedor || null
-      await supabase.from('fornecedores')
-        .update(fornecedorUpdate)
-        .eq('id', ordemAtual.fornecedor_id)
+      await tentarSemColunaFaltante(fornecedorUpdate, p =>
+        supabase.from('fornecedores').update(p).eq('id', ordemAtual.fornecedor_id)
+      )
     }
 
     // Atualizar ordem
-    const { data, error } = await supabase
-      .from('ordens')
-      .update({ ...camposOrdem, updated_at: new Date().toISOString() })
-      .eq('id', req.params.id)
-      .select().single()
+    const { data, error } = await tentarSemColunaFaltante(
+      { ...camposOrdem, updated_at: new Date().toISOString() },
+      p => supabase.from('ordens').update(p).eq('id', req.params.id).select().single()
+    )
 
     if (error) throw error
     res.json(data)

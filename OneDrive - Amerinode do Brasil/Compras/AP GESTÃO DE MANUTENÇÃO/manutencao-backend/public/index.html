@@ -749,7 +749,7 @@ tr:hover td{background:#F9F9F9}
         <button type="button" class="btn" style="padding:4px 10px;font-size:12px" onclick="adicionarAnexoSlot()">+ Adicionar anexo</button>
       </div>
       <div id="man-anexos-list" style="display:flex;flex-direction:column;gap:8px"></div>
-      <p style="font-size:11px;color:#888;margin-top:6px">Mínimo 3 anexos. Tamanho máx. 5 MB por arquivo.</p>
+      <p style="font-size:11px;color:#888;margin-top:6px">Opcional. Tamanho máx. 5 MB por arquivo (PDF ou imagem).</p>
     </div>
 
     <div style="display:flex;gap:8px;margin-top:16px;padding-top:16px;border-top:1px solid #EEE">
@@ -2643,10 +2643,6 @@ async function salvarManutencao(){
   }
   if(manAnexos.some(a=>a.uploading)){alert('Aguarde o término dos uploads.');return}
   if(!payload.placa||!payload.data_entrada){alert('Placa e Data de Entrada são obrigatórios.');return}
-  const anexosComArquivo = manAnexos.filter(a=>a.path).length
-  if(anexosComArquivo<3){
-    if(!confirm(`Você anexou apenas ${anexosComArquivo} arquivo(s). O mínimo recomendado é 3. Deseja salvar mesmo assim?`)) return
-  }
   try{
     if(manEditId){
       await apiCall(`/api/manutencao/${manEditId}`,'PUT',payload)

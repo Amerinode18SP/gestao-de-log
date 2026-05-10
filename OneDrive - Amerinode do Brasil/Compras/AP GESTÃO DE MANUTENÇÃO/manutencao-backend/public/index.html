@@ -316,6 +316,10 @@ tr:hover td{background:#F9F9F9}
         <button class="period-btn" onclick="setPeriod('ano',this)">Ano atual</button>
         <button class="period-btn" onclick="setPeriod('todos',this)">Todos</button>
         <div style="flex:1"></div>
+        <span style="font-size:12px;color:#666;font-weight:500">Placa:</span>
+        <input type="text" id="dash-placa" list="dash-placa-opts" placeholder="Todas" oninput="aplicarFiltroDashPlaca(this.value)" style="padding:4px 8px;border:1px solid #DDD;border-radius:6px;font-size:12px;width:120px;text-transform:uppercase">
+        <datalist id="dash-placa-opts"></datalist>
+        <button class="btn" onclick="limparFiltroDashPlaca()" title="Limpar filtro de placa" style="padding:4px 8px;font-size:11px">✕</button>
         <button class="btn" id="btn-export-dash-xlsx" onclick="exportarDashboardXLSX()">⬇ XLSX</button>
         <button class="btn" id="btn-export-dash" onclick="exportarDashboardPDF()">⬇ PDF</button>
       </div>
@@ -1033,6 +1037,7 @@ async function iniciarSessao(user){
   document.getElementById('main-app').classList.add('visible')
 
   await checkApi()
+  popularPlacasDashboard()
   carregarDashboard()
 }
 
@@ -1186,15 +1191,42 @@ function baixarTemplate(){
 // ── DASHBOARD ─────────────────────────────────────────────────
 let chartGastosObj=null,chartGran='mes',chartTipo='line'
 let donutStatusObj=null, donutCategoriaObj=null
+let dashPlaca=''
+let dashPlacaTimer=null
 const dashboardCache = { resumo:null, ultimas:[], rankings:{}, status:[], categoria:[], serie:[] }
+
+function placaQS(){return dashPlaca?`&placa=${encodeURIComponent(dashPlaca)}`:''}
+
+function aplicarFiltroDashPlaca(v){
+  clearTimeout(dashPlacaTimer)
+  dashPlacaTimer=setTimeout(()=>{
+    dashPlaca=(v||'').toUpperCase().trim()
+    carregarDashboard()
+  }, 350)
+}
+function limparFiltroDashPlaca(){
+  document.getElementById('dash-placa').value=''
+  dashPlaca=''
+  carregarDashboard()
+}
+
+async function popularPlacasDashboard(){
+  try{
+    const r=await apiCall('/api/veiculos?limit=2000')
+    const placas=(r.data||r||[]).map(v=>v.placa).filter(Boolean).sort()
+    const dl=document.getElementById('dash-placa-opts')
+    if(dl) dl.innerHTML=placas.map(p=>`<option value="${p}">`).join('')
+  }catch(e){/* opcional */}
+}
 
 async function carregarDashboard(){
   try{
     const params=getPeriodParams(currentPeriod)
     const paramStr=params?'&'+params:''
+    const placaUlt=dashPlaca?`&placa=${encodeURIComponent(dashPlaca)}`:''
     const[resumo,ordsData]=await Promise.all([
-      apiCall(`/api/dashboard/resumo?periodo=${currentPeriod}&comparar=1`),
-      apiCall(`/api/ordens?limit=8${paramStr}`)
+      apiCall(`/api/dashboard/resumo?periodo=${currentPeriod}&comparar=1${placaQS()}`),
+      apiCall(`/api/ordens?limit=8${paramStr}${placaUlt}`)
     ])
     const totOrd=resumo.total_ordens||0
     const valTot=Number(resumo.valor_total)||0
@@ -1244,14 +1276,14 @@ async function carregarDonuts(){
   if(typeof Chart==='undefined') return
   // Status
   try{
-    const data=await apiCall(`/api/dashboard/rankings?tipo=status&periodo=${currentPeriod}&limit=10`)
+    const data=await apiCall(`/api/dashboard/rankings?tipo=status&periodo=${currentPeriod}&limit=10${placaQS()}`)
     dashboardCache.status=data||[]
     const cores={'Pendente':'#F4B400','Em Preparação':'#378ADD','Concluído':'#27500A','Cancelado':'#791F1F'}
     renderDonut('donut-status','legend-status',data,cores,(donutStatusObj_=>{donutStatusObj=donutStatusObj_}))
   }catch(e){console.warn('Donut status:',e.message)}
   // Categoria
   try{
-    const data=await apiCall(`/api/dashboard/rankings?tipo=categoria&periodo=${currentPeriod}&limit=10`)
+    const data=await apiCall(`/api/dashboard/rankings?tipo=categoria&periodo=${currentPeriod}&limit=10${placaQS()}`)
     dashboardCache.categoria=data||[]
     const cores={'Serviço':'#378ADD','Produto':'#F4B400'}
     renderDonut('donut-categoria','legend-categoria',data,cores,(o=>{donutCategoriaObj=o}))
@@ -1317,7 +1349,7 @@ async function carregarRankings(){
     if(!cont) return
     cont.innerHTML='<div class="rank-empty">Carregando...</div>'
     try{
-      const data=await apiCall(`/api/dashboard/rankings?tipo=${tipo}&periodo=${currentPeriod}&limit=10`)
+      const data=await apiCall(`/api/dashboard/rankings?tipo=${tipo}&periodo=${currentPeriod}&limit=10${placaQS()}`)
       dashboardCache.rankings[tipo]=data||[]
       if(!data||!data.length){cont.innerHTML=`<div class="rank-empty">${vazio}</div>`;return}
       const max=Math.max(...data.map(d=>d.total))||1
@@ -1342,7 +1374,7 @@ async function carregarGraficoGastos(){
   const canvas=document.getElementById('chart-gastos')
   if(!canvas||typeof Chart==='undefined') return
   try{
-    const data=await apiCall(`/api/dashboard/serie?periodo=${currentPeriod}&granularidade=${chartGran}`)
+    const data=await apiCall(`/api/dashboard/serie?periodo=${currentPeriod}&granularidade=${chartGran}${placaQS()}`)
     dashboardCache.serie=data||[]
     const labels=(data||[]).map(d=>fmtPeriodoLabel(d.periodo,chartGran))
     const totais=(data||[]).map(d=>d.total)

@@ -130,17 +130,31 @@ function calcularPeriodoAnterior(periodo) {
   }
 }
 
+// Resolve placa → veiculo_id (ou null se não encontrado / vazio)
+async function resolverVeiculoId(placa) {
+  if (!placa) return null
+  const { data } = await supabase
+    .from('veiculos')
+    .select('id')
+    .eq('placa', placa.toString().toUpperCase().trim())
+    .maybeSingle()
+  return data ? data.id : '__NONE__'
+}
+
 async function resumo(req, res) {
   try {
-    const { periodo = 'mes', comparar = '0' } = req.query
+    const { periodo = 'mes', comparar = '0', placa } = req.query
     const hoje = new Date()
     const inicioStr = calcularInicio(periodo)
     const fimStr    = calcularFim(periodo)
+
+    const veiculoId = placa ? await resolverVeiculoId(placa) : null
 
     // Total de ordens e valor no período
     let qOrdens = supabase.from('ordens').select('status, valor_total, data_ordem')
     if (inicioStr) qOrdens = qOrdens.gte('data_ordem', inicioStr)
     if (fimStr)    qOrdens = qOrdens.lte('data_ordem', fimStr)
+    if (veiculoId) qOrdens = qOrdens.eq('veiculo_id', veiculoId === '__NONE__' ? '00000000-0000-0000-0000-000000000000' : veiculoId)
     const { data: ordens, error: e1 } = await qOrdens
     if (e1) throw e1
 
@@ -152,10 +166,12 @@ async function resumo(req, res) {
     if (comparar === '1' && periodo !== 'todos') {
       const ant = calcularPeriodoAnterior(periodo)
       if (ant.inicio && ant.fim) {
-        const { data: ordensAnt, error: eAnt } = await supabase
+        let qAnt = supabase
           .from('ordens').select('valor_total')
           .gte('data_ordem', ant.inicio)
           .lte('data_ordem', ant.fim)
+        if (veiculoId) qAnt = qAnt.eq('veiculo_id', veiculoId === '__NONE__' ? '00000000-0000-0000-0000-000000000000' : veiculoId)
+        const { data: ordensAnt, error: eAnt } = await qAnt
         if (!eAnt) {
           const tAntCount = ordensAnt.length
           const tAntValor = ordensAnt.reduce((s, o) => s + (o.valor_total || 0), 0)
@@ -206,9 +222,10 @@ async function resumo(req, res) {
 // ── Rankings de gastos (placa, localidade, item, fornecedor, supervisor, categoria) ──
 async function rankings(req, res) {
   try {
-    const { tipo = 'placa', periodo = 'mes', limit = 10 } = req.query
+    const { tipo = 'placa', periodo = 'mes', limit = 10, placa } = req.query
     const inicioStr = calcularInicio(periodo)
     const fimStr    = calcularFim(periodo)
+    const veiculoId = placa ? await resolverVeiculoId(placa) : null
 
     let query = supabase
       .from('ordens')
@@ -219,6 +236,7 @@ async function rankings(req, res) {
       `)
     if (inicioStr) query = query.gte('data_ordem', inicioStr)
     if (fimStr)    query = query.lte('data_ordem', fimStr)
+    if (veiculoId) query = query.eq('veiculo_id', veiculoId === '__NONE__' ? '00000000-0000-0000-0000-000000000000' : veiculoId)
 
     const { data, error } = await query
     if (error) throw error
@@ -254,13 +272,15 @@ async function rankings(req, res) {
 // ── Série temporal de gastos (granularidade dia/semana/mes/ano) ──────────────
 async function serie(req, res) {
   try {
-    const { periodo = 'ano', granularidade = 'mes' } = req.query
+    const { periodo = 'ano', granularidade = 'mes', placa } = req.query
     const inicioStr = calcularInicio(periodo)
     const fimStr    = calcularFim(periodo)
+    const veiculoId = placa ? await resolverVeiculoId(placa) : null
 
     let query = supabase.from('ordens').select('data_ordem, valor_total, categoria')
     if (inicioStr) query = query.gte('data_ordem', inicioStr)
     if (fimStr)    query = query.lte('data_ordem', fimStr)
+    if (veiculoId) query = query.eq('veiculo_id', veiculoId === '__NONE__' ? '00000000-0000-0000-0000-000000000000' : veiculoId)
 
     const { data, error } = await query
     if (error) throw error

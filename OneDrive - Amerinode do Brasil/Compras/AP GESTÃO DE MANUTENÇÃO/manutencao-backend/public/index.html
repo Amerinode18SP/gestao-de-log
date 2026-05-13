@@ -2054,11 +2054,15 @@ function popularAnoSelector(){
   const sel = document.getElementById('an-ano')
   if(sel.options.length) return
   const ano = new Date().getFullYear()
-  for(let y=ano; y>=ano-5; y--){
+  const oAll = document.createElement('option')
+  oAll.value='todos'; oAll.textContent='Todos os anos'
+  sel.appendChild(oAll)
+  for(let y=ano; y>=ano-6; y--){
     const o=document.createElement('option')
     o.value=y; o.textContent=y
     sel.appendChild(o)
   }
+  sel.value='todos'
 }
 
 function aplicarFiltroAnalisePlaca(v){
@@ -2086,17 +2090,30 @@ async function popularPlacasAnalise(){
 async function carregarAnalise(){
   popularAnoSelector()
   await popularPlacasAnalise()
-  const ano = parseInt(document.getElementById('an-ano').value) || new Date().getFullYear()
-  analiseAnoAtual = ano
-  const di = `${ano}-01-01`, df = `${ano}-12-31`
+  const anoSel = document.getElementById('an-ano').value
+  const ano = anoSel === 'todos' ? null : (parseInt(anoSel) || new Date().getFullYear())
+  analiseAnoAtual = ano || 'todos'
 
   const tb = document.querySelector('#an-pivot tbody')
-  tb.innerHTML = `<tr><td colspan="14" class="loading"><span class="spinner"></span>Carregando dados de ${ano}...</td></tr>`
+  tb.innerHTML = `<tr><td colspan="14" class="loading"><span class="spinner"></span>Carregando dados${ano?' de '+ano:''}...</td></tr>`
 
   try{
-    const r = await fetch(`${API_URL}/api/ordens?limit=10000&data_inicio=${di}&data_fim=${df}`)
-    const j = await r.json()
-    analiseRaw = (j.data||[]).filter(o => o.veiculo?.placa)
+    // Pagina (Supabase tem limite ~1000 por chamada)
+    const PAGE_SIZE = 1000
+    let pagina = 1, todas = [], totalRecebido = 0
+    while(true){
+      const params = new URLSearchParams({page: pagina, limit: PAGE_SIZE})
+      if(ano){ params.set('data_inicio', `${ano}-01-01`); params.set('data_fim', `${ano}-12-31`) }
+      const r = await fetch(`${API_URL}/api/ordens?${params}`)
+      const j = await r.json()
+      const lote = j.data || []
+      todas = todas.concat(lote)
+      totalRecebido += lote.length
+      if(lote.length < PAGE_SIZE) break
+      if(pagina >= 20) break // segurança: até 20.000 ordens
+      pagina++
+    }
+    analiseRaw = todas.filter(o => o.veiculo?.placa)
     renderAnalise()
   }catch(e){
     tb.innerHTML = `<tr><td colspan="14" class="empty" style="color:#a00">Erro ao carregar: ${e.message}</td></tr>`

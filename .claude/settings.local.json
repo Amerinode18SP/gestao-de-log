@@ -11,7 +11,9 @@
       "Bash(curl -s \"https://manutencao-veicular-api-production.up.railway.app/api/manutencao/anexos\" -X DELETE -H \"Content-Type: application/json\" -d '{}')",
       "Bash(curl -sI \"https://manutencao-veicular-api-production.up.railway.app/\")",
       "Bash(curl -s \"https://manutencao-veicular-api-production.up.railway.app/health?t=$\\(date +%s\\)\" -o /dev/null -w \"%{http_code}\")",
-      "Bash(curl -s \"https://manutencao-veicular-api-production.up.railway.app/health\" -o /dev/null)"
+      "Bash(curl -s \"https://manutencao-veicular-api-production.up.railway.app/health\" -o /dev/null)",
+      "Bash(node -e \"require\\('fs'\\).readFileSync\\('public/index.html','utf8'\\);console.log\\('OK'\\)\")",
+      "Bash(git commit *)"
     ]
   }
 }

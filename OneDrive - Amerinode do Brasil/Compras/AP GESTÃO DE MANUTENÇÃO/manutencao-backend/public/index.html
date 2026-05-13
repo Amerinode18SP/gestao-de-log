@@ -616,7 +616,16 @@ tr:hover td{background:#F9F9F9}
       <div class="card" style="margin-bottom:16px">
         <div class="card-header">
           <span class="card-title">📋 Gasto por placa × mês <span style="font-weight:400;color:#888;font-size:12px" id="an-pivot-info"></span></span>
-          <span style="font-size:11px;color:#888">Clique numa placa para ver os itens</span>
+          <div style="display:flex;align-items:center;gap:8px">
+            <label style="font-size:11px;color:#666">Ordenar por:</label>
+            <select id="an-pivot-sort" onchange="renderPivotPlacaMes()" style="padding:4px 8px;border:1px solid #DDD;border-radius:6px;font-size:12px">
+              <option value="total">Maior gasto</option>
+              <option value="placa">Placa (A→Z)</option>
+              <option value="placa_desc">Placa (Z→A)</option>
+              <option value="ordens">Mais ordens</option>
+            </select>
+            <span style="font-size:11px;color:#888">| Clique numa placa para ver os itens</span>
+          </div>
         </div>
         <div class="pivot-wrap">
           <table class="pivot-table" id="an-pivot">
@@ -2172,9 +2181,15 @@ function renderPivotPlacaMes(){
     cur.total    += v
     cur.qtd      += 1
   }
+  const sortMode = document.getElementById('an-pivot-sort')?.value || 'total'
   const linhas = [...map.entries()]
     .map(([placa,v])=>({placa, ...v}))
-    .sort((a,b)=>b.total-a.total)
+    .sort((a,b)=>{
+      if(sortMode==='placa')      return a.placa.localeCompare(b.placa)
+      if(sortMode==='placa_desc') return b.placa.localeCompare(a.placa)
+      if(sortMode==='ordens')     return b.qtd-a.qtd
+      return b.total-a.total
+    })
 
   // calcula maior valor por mês para colorir hot/mid/low
   const maxPorMes = Array(12).fill(0)

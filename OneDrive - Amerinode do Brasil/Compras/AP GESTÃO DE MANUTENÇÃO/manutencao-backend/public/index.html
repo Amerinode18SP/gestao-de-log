@@ -2080,7 +2080,7 @@ function limparFiltroAnalisePlaca(){
 
 async function popularPlacasAnalise(){
   try{
-    const r = await fetch(`${API_URL}/api/veiculos`)
+    const r = await fetch(`${API}/api/veiculos`)
     const veiculos = await r.json()
     const dl = document.getElementById('an-placa-opts')
     dl.innerHTML = (veiculos||[]).map(v=>`<option value="${v.placa}">`).join('')
@@ -2104,7 +2104,7 @@ async function carregarAnalise(){
     while(true){
       const params = new URLSearchParams({page: pagina, limit: PAGE_SIZE})
       if(ano){ params.set('data_inicio', `${ano}-01-01`); params.set('data_fim', `${ano}-12-31`) }
-      const r = await fetch(`${API_URL}/api/ordens?${params}`)
+      const r = await fetch(`${API}/api/ordens?${params}`)
       const j = await r.json()
       const lote = j.data || []
       todas = todas.concat(lote)

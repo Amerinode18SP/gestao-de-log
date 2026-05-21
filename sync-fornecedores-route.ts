@@ -37,9 +37,9 @@ export async function POST(req: NextRequest) {
         empresa_id,
         nome: f.razao_social ?? f.nome_fantasia ?? '',
         cnpj: (f.cnpj_cpf ?? '').replace(/\D/g, ''),
-        omie_codigo: f.codigo_fornecedor_omie,
+        omie_codigo: f.codigo_fornecedor_omie ?? null,
         ativo: f.inativo !== 'S',
-      }))
+      })).filter((f: any) => f.nome)
 
       if (upserts.length > 0) {
         await supabase

@@ -49,7 +49,7 @@ export async function syncCtes(
     // Buscar fornecedores e centros de custo da empresa para fazer o match
     const { data: fornecedores } = await supabase
       .from('fornecedores')
-      .select('id, cnpj')
+      .select('id, cnpj, omie_codigo')
       .eq('empresa_id', empresaId)
 
     const { data: centros } = await supabase
@@ -57,22 +57,11 @@ export async function syncCtes(
       .select('id, codigo')
       .eq('empresa_id', empresaId)
 
+    // Match por CNPJ (CTes com remetente preenchido)
     const fornecedorMap = new Map(fornecedores?.map(f => [f.cnpj, f.id]) ?? [])
+    // Match por código Omie (CTes de contas a pagar)
+    const fornecedorOmieMap = new Map(fornecedores?.filter(f => f.omie_codigo).map(f => [f.omie_codigo, f.id]) ?? [])
     const centroMap = new Map(centros?.map(c => [c.codigo, c.id]) ?? [])
-
-    // Helper: buscar ou criar fornecedor pelo CNPJ
-    async function upsertFornecedor(nome: string, cnpj: string): Promise<string | undefined> {
-      if (!cnpj) return undefined
-      const cnpjLimpo = cnpj.replace(/\D/g, '')
-      if (fornecedorMap.has(cnpjLimpo)) return fornecedorMap.get(cnpjLimpo)
-      const { data: novo } = await supabase
-        .from('fornecedores')
-        .upsert({ empresa_id: empresaId, nome, cnpj: cnpjLimpo, ativo: true }, { onConflict: 'empresa_id,cnpj', ignoreDuplicates: false })
-        .select('id')
-        .single()
-      if (novo?.id) fornecedorMap.set(cnpjLimpo, novo.id)
-      return novo?.id
-    }
 
     // Buscar CT-e existentes para saber quais são novos vs atualização
     const { data: existentes } = await supabase
@@ -86,7 +75,7 @@ export async function syncCtes(
     // Buscar páginas do Omie em lote (max 40 páginas por vez
     // para ficar dentro dos 55s da Vercel com folga)
     // -------------------------------------------------------
-    const MAX_PAGINAS_POR_LOTE = 20
+    const MAX_PAGINAS_POR_LOTE = 40
     const fimLote = paginaFim ?? paginaInicio + MAX_PAGINAS_POR_LOTE - 1
 
     console.log(`[sync] Buscando páginas ${paginaInicio} até ${fimLote} — empresa ${empresaId}`)
@@ -117,16 +106,9 @@ export async function syncCtes(
     const LOTE = 50
     for (let i = 0; i < omieCtEList.length; i += LOTE) {
       const lote = omieCtEList.slice(i, i + LOTE)
-      // Criar fornecedores novos automaticamente
-      await Promise.all(lote.map(async (raw: OmieCte) => {
-        const nome = raw.cNomeRemetente || raw.cNomeTomador || ''
-        const cnpj = raw.cCNPJRemetente || raw.cCNPJTomador || ''
-        if (nome && cnpj) await upsertFornecedor(nome, cnpj)
-      }))
-
       const upserts = lote.map((raw: OmieCte) => {
         const cnpj = (raw.cCNPJRemetente || raw.cCNPJTomador || '').replace(/\D/g, '')
-        const fornecedorId = fornecedorMap.get(cnpj)
+        const fornecedorId = fornecedorMap.get(cnpj) ?? fornecedorOmieMap.get(raw.nCodCte)
         const centroCustoId = centroMap.get(raw.cCodCentroCusto ?? '')
         return {
           ...OmieClient.normalizar(raw, empresaId, fornecedorId, centroCustoId),

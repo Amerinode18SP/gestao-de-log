@@ -86,7 +86,7 @@ export async function syncCtes(
     // Buscar páginas do Omie em lote (max 40 páginas por vez
     // para ficar dentro dos 55s da Vercel com folga)
     // -------------------------------------------------------
-    const MAX_PAGINAS_POR_LOTE = 40
+    const MAX_PAGINAS_POR_LOTE = 20
     const fimLote = paginaFim ?? paginaInicio + MAX_PAGINAS_POR_LOTE - 1
 
     console.log(`[sync] Buscando páginas ${paginaInicio} até ${fimLote} — empresa ${empresaId}`)

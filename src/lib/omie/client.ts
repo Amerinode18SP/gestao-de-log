@@ -157,7 +157,7 @@ export class OmieClient {
   // ----------------------------------------------------------
   private mapContaPagarToCte(raw: any): OmieCte {
     return {
-      nCodCte:          String(raw.codigo_lancamento_omie ?? ''),
+      nCodCte: Number(raw.codigo_lancamento_omie ?? 0),,
       cNumCte:          raw.numero_documento_fiscal ?? raw.numero_documento ?? '',
       cChaveCte:        raw.chave_nfe ?? '',
       cNumNF:           raw.numero_documento ?? '',

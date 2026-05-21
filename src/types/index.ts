@@ -51,6 +51,7 @@ export interface Cte {
   chave_acesso?: string
   omie_id?: number
   omie_numero_nf?: string
+  omie_fornecedor_codigo?: number
 
   tomador_tipo?: TomadorTipo
   remetente_nome?: string

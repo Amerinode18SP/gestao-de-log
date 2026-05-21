@@ -170,26 +170,21 @@ export class OmieClient {
     if (this.fornecedorCache.has(codigoOmie)) {
       return this.fornecedorCache.get(codigoOmie)!
     }
-    // Tenta em fornecedores primeiro, depois em clientes
-    for (const [endpoint, call, param] of [
-      ['/geral/fornecedores/', 'ConsultarFornecedor', { codigo_fornecedor_omie: codigoOmie }],
-      ['/geral/clientes/',     'ConsultarCliente',    { codigo_cliente_omie: codigoOmie }],
-    ] as const) {
-      try {
-        const data = await this.call<any>(endpoint, call, param)
-        const result = {
-          nome: data.razao_social ?? data.nome_fantasia ?? '',
-          cnpj: (data.cnpj_cpf ?? '').replace(/\D/g, ''),
-        }
-        if (result.nome) {
-          this.fornecedorCache.set(codigoOmie, result)
-          return result
-        }
-      } catch { /* tenta o próximo */ }
+    try {
+      const data = await this.call<any>(
+        '/geral/clientes/',
+        'ConsultarCliente',
+        { codigo_cliente_omie: codigoOmie }
+      )
+      const result = {
+        nome: data.razao_social ?? data.nome_fantasia ?? '',
+        cnpj: data.cnpj_cpf ?? '',
+      }
+      this.fornecedorCache.set(codigoOmie, result)
+      return result
+    } catch {
+      return { nome: '', cnpj: '' }
     }
-    const empty = { nome: '', cnpj: '' }
-    this.fornecedorCache.set(codigoOmie, empty)
-    return empty
   }
 
   // ----------------------------------------------------------
@@ -271,8 +266,26 @@ export class OmieClient {
         : undefined,
     }
   }
-}
 
+  // ----------------------------------------------------------
+  // Listar todos os fornecedores do Omie (paginado)
+  // ----------------------------------------------------------
+  async listarFornecedores(pagina = 1, registrosPorPagina = 50): Promise<{ fornecedores: any[]; total_paginas: number }> {
+    const data = await this.call<any>(
+      '/geral/fornecedores/',
+      'ListarFornecedores',
+      {
+        pagina,
+        registros_por_pagina: registrosPorPagina,
+        apenas_importado_api: 'N',
+      }
+    )
+    return {
+      fornecedores: data.cadastro ?? [],
+      total_paginas: data.total_de_paginas ?? 1,
+    }
+  }
+}
 // ============================================================
 // Factory — instância com credenciais do env
 // ============================================================

@@ -1,0 +1,4 @@
+content = open('src/lib/omie/client.ts', encoding='utf-8').read() 
+method = "\n  async listarFornecedores(pagina = 1, registrosPorPagina = 50) {\n    const data = await (this as any).call('/geral/fornecedores/', 'ListarFornecedores', { pagina, registros_por_pagina: registrosPorPagina, apenas_importado_api: 'N' })\n    return { fornecedores: data.cadastro ?? [], total_paginas: data.total_de_paginas ?? 1 }\n  }\n" 
+content = content.replace('// ============', method + '// ============') 
+open('src/lib/omie/client.ts', 'w', encoding='utf-8').write(content) 

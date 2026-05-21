@@ -1,0 +1,7 @@
+f = open('src/lib/omie/client.ts', encoding='utf-8') 
+content = f.read() 
+f.close() 
+idx = content.find('  async listarFornecedores') 
+if idx  content = content[:idx] + content[idx:].replace('  async listarFornecedores(pagina = 1, registrosPorPagina = 50) {\n    const data = await (this as any)' + ".call('/geral/fornecedores/', 'ListarFornecedores', { pagina, registros_por_pagina: registrosPorPagina, apenas_importado_api: 'N' })\n    return { fornecedores: data.cadastro ?? [], total_paginas: data.total_de_paginas ?? 1 }\n  }\n", '', content[idx:].count('  async listarFornecedores') - 1) 
+open('src/lib/omie/client.ts', 'w', encoding='utf-8').write(content) 
+print('OK') 

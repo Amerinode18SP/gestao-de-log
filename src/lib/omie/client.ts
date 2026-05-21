@@ -161,43 +161,6 @@ export class OmieClient {
   }
 
   // ----------------------------------------------------------
-  // Listar CT-e com fornecedor já preenchido (para o sync por lote)
-  // ----------------------------------------------------------
-  async listarCtesComFornecedor(pagina = 1, registrosPorPagina = 50): Promise<OmieListaCteResponse> {
-    const data = await this.call<any>(
-      '/financas/contapagar/',
-      'ListarContasPagar',
-      {
-        pagina,
-        registros_por_pagina: registrosPorPagina,
-        apenas_importado_api: 'N',
-      }
-    )
-
-    const todos = data.conta_pagar_cadastro ?? []
-    const ctes = todos.filter((r: any) => r.codigo_tipo_documento === 'CTE')
-
-    // Buscar fornecedores únicos desta página (com cache)
-    const codigosUnicos = [...new Set(
-      ctes.map((r: any) => r.codigo_cliente_fornecedor).filter(Boolean)
-    )] as number[]
-    await Promise.all(codigosUnicos.map((cod: number) => this.buscarFornecedor(cod)))
-
-    return {
-      nPagina: pagina,
-      nTotPaginas: data.total_de_paginas ?? 1,
-      nRegistros: ctes.length,
-      nTotRegistros: data.total_de_registros ?? 0,
-      listaCte: ctes.map((r: any) => {
-        const forn = r.codigo_cliente_fornecedor
-          ? this.fornecedorCache.get(r.codigo_cliente_fornecedor)
-          : undefined
-        return this.mapContaPagarToCte(r, forn)
-      }),
-    }
-  }
-
-  // ----------------------------------------------------------
   // Cache de fornecedores (codigo_omie → { nome, cnpj })
   // Evita chamadas repetidas à API para o mesmo fornecedor
   // ----------------------------------------------------------
@@ -207,21 +170,26 @@ export class OmieClient {
     if (this.fornecedorCache.has(codigoOmie)) {
       return this.fornecedorCache.get(codigoOmie)!
     }
-    try {
-      const data = await this.call<any>(
-        '/geral/clientes/',
-        'ConsultarCliente',
-        { codigo_cliente_omie: codigoOmie }
-      )
-      const result = {
-        nome: data.razao_social ?? data.nome_fantasia ?? '',
-        cnpj: data.cnpj_cpf ?? '',
-      }
-      this.fornecedorCache.set(codigoOmie, result)
-      return result
-    } catch {
-      return { nome: '', cnpj: '' }
+    // Tenta em fornecedores primeiro, depois em clientes
+    for (const [endpoint, call, param] of [
+      ['/geral/fornecedores/', 'ConsultarFornecedor', { codigo_fornecedor_omie: codigoOmie }],
+      ['/geral/clientes/',     'ConsultarCliente',    { codigo_cliente_omie: codigoOmie }],
+    ] as const) {
+      try {
+        const data = await this.call<any>(endpoint, call, param)
+        const result = {
+          nome: data.razao_social ?? data.nome_fantasia ?? '',
+          cnpj: (data.cnpj_cpf ?? '').replace(/\D/g, ''),
+        }
+        if (result.nome) {
+          this.fornecedorCache.set(codigoOmie, result)
+          return result
+        }
+      } catch { /* tenta o próximo */ }
     }
+    const empty = { nome: '', cnpj: '' }
+    this.fornecedorCache.set(codigoOmie, empty)
+    return empty
   }
 
   // ----------------------------------------------------------

@@ -34,6 +34,10 @@ const TOMADOR_MAP: Record<string, TomadorTipo> = {
   '4': 'Terceiros',
 }
 
+// -------------------------------------------------------
+// STATUS_MAP: converte status do Omie → StatusCte
+// Usado UMA VEZ só no mapContaPagarToCte
+// -------------------------------------------------------
 const STATUS_MAP: Record<string, StatusCte> = {
   'PAGO':      'Faturado',
   'ATRASADO':  'Pendente',
@@ -112,7 +116,7 @@ export class OmieClient {
   }
 
   // ----------------------------------------------------------
-  // Listar Fornecedores (fallback — só DEXALOG na Amerinode)
+  // Listar Fornecedores
   // ----------------------------------------------------------
   async listarFornecedores(pagina = 1, registrosPorPagina = 50) {
     const data = await this.call<any>(
@@ -128,6 +132,7 @@ export class OmieClient {
 
   // ----------------------------------------------------------
   // Mapear Conta a Pagar → OmieCte
+  // FIX: STATUS_MAP aplicado AQUI — cStatus já vira 'Faturado'/'Pendente'/etc
   // ----------------------------------------------------------
   private mapContaPagarToCte(raw: any, fornecedor?: { nome: string; cnpj: string }): OmieCte {
     return {
@@ -152,7 +157,8 @@ export class OmieClient {
       nPesoCubado:            0,
       nPesoTaxado:            0,
       cLinkNFe:               '',
-      cStatus:                STATUS_MAP[raw.status_titulo] ?? 'P',
+      // FIX: converte status_titulo do Omie → StatusCte aqui mesmo
+      cStatus:                STATUS_MAP[raw.status_titulo] ?? 'Pendente',
       dDtEmissao:             raw.data_emissao ?? '',
       cCodCentroCusto:        raw.distribuicao?.[0]?.cCodDep ?? '',
     }
@@ -160,6 +166,7 @@ export class OmieClient {
 
   // ----------------------------------------------------------
   // Normalizar OmieCte → banco Supabase
+  // FIX: cStatus já está convertido — NÃO passar pelo STATUS_MAP de novo!
   // ----------------------------------------------------------
   static normalizar(
     raw: OmieCte,
@@ -193,7 +200,9 @@ export class OmieClient {
       peso_taxado:       raw.nPesoTaxado,
       link_nfe:          raw.cLinkNFe,
       omie_fornecedor_codigo: raw.omie_fornecedor_codigo ?? undefined,
-      status:            STATUS_MAP[raw.cStatus] ?? 'Pendente',
+      // FIX: cStatus já é 'Faturado'/'Pendente'/'Cancelado'/'Recebido'
+      // NÃO passar pelo STATUS_MAP de novo (causava tudo virar 'Pendente')
+      status:            raw.cStatus ?? 'Pendente',
       data_emissao:      raw.dDtEmissao
         ? raw.dDtEmissao.split('/').reverse().join('-')
         : undefined,

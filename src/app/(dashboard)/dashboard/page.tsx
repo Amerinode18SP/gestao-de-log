@@ -49,6 +49,7 @@ const STATUS_STYLE: Record<string, { bg: string; color: string }> = {
   Faturado:  { bg: '#E8F5E9', color: '#2E7D32' },
   Cancelado: { bg: '#FFEBEE', color: '#C62828' },
   Pendente:  { bg: '#FFF8E1', color: '#E65100' },
+  'A vencer': { bg: '#FFF8E1', color: '#E65100' },
 }
 
 export default function DashboardPage() {
@@ -79,7 +80,7 @@ export default function DashboardPage() {
         page: String(p),
         limit: String(PAGE_SIZE),
       })
-      if (status !== 'Todos') params.set('status', status)
+      if (status !== 'Todos') params.set('status', status === 'A vencer' ? 'Pendente' : status)
       if (q) params.set('busca', q)
 
       const res = await fetch(`/api/ctes?${params}`)
@@ -274,7 +275,7 @@ export default function DashboardPage() {
             { label: 'Total de CTes', valor: resumo?.total ?? '—', icon: '📦', cor: '#1A1916' },
             { label: 'Valor Total', valor: resumo ? fmt(resumo.valor_total) : '—', icon: '💰', cor: '#2E7D32' },
             { label: 'Faturadas', valor: resumo?.faturado ?? '—', icon: '🟢', cor: '#2E7D32' },
-            { label: 'Pendentes', valor: resumo?.pendente ?? '—', icon: '🟡', cor: '#E65100' },
+            { label: 'A vencer', valor: resumo?.pendente ?? '—', icon: '🟡', cor: '#E65100' },
             { label: 'Canceladas', valor: resumo?.cancelado ?? '—', icon: '🔴', cor: '#C62828' },
           ].map(card => (
             <div key={card.label} style={{ background: '#fff', borderRadius: '12px', padding: '18px 20px', border: '1px solid #E8E6E0', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
@@ -296,7 +297,7 @@ export default function DashboardPage() {
             onChange={e => setBusca(e.target.value)}
             style={{ flex: '1', minWidth: '240px', padding: '9px 14px', borderRadius: '8px', border: '1px solid #D8D6D0', fontSize: '13px', background: '#fff', outline: 'none' }}
           />
-          {['Todos', 'Faturado', 'Pendente', 'Cancelado'].map(s => (
+          {['Todos', 'Faturado', 'A vencer', 'Cancelado'].map(s => (
             <button key={s} onClick={() => setFiltroStatus(s)} style={{ padding: '8px 14px', borderRadius: '8px', border: '1px solid', borderColor: filtroStatus === s ? '#1A1916' : '#D8D6D0', background: filtroStatus === s ? '#1A1916' : '#fff', color: filtroStatus === s ? '#fff' : '#555', fontSize: '12px', fontWeight: '500', cursor: 'pointer' }}>{s}</button>
           ))}
         </div>
@@ -338,7 +339,7 @@ export default function DashboardPage() {
                         <td style={{ padding: '10px 16px', fontWeight: '600', color: '#2E7D32', whiteSpace: 'nowrap' }}>{c.valor_servico != null ? fmt(c.valor_servico) : '—'}</td>
                         <td style={{ padding: '10px 16px', color: '#666', whiteSpace: 'nowrap' }}>{c.data_emissao ? new Date(c.data_emissao).toLocaleDateString('pt-BR') : '—'}</td>
                         <td style={{ padding: '10px 16px' }}>
-                          <span style={{ background: st.bg, color: st.color, padding: '3px 10px', borderRadius: '99px', fontSize: '11px', fontWeight: '600', whiteSpace: 'nowrap' }}>{c.status}</span>
+                          <span style={{ background: st.bg, color: st.color, padding: '3px 10px', borderRadius: '99px', fontSize: '11px', fontWeight: '600', whiteSpace: 'nowrap' }}>{c.status === 'Pendente' ? 'A vencer' : c.status}</span>
                         </td>
                       </tr>
                     )

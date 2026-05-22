@@ -73,6 +73,7 @@ export default function DashboardPage() {
   const [totalPages, setTotalPages] = useState(1)
   const [totalCtes, setTotalCtes] = useState(0)
   const [xmlImport, setXmlImport] = useState<{ running: boolean; mensagem: string; erro?: string }>({ running: false, mensagem: '' })
+  const [xmlImport, setXmlImport] = useState<{ running: boolean; mensagem: string; erro?: string }>({ running: false, mensagem: '' })
 
   const carregarCtes = useCallback(async (p = 1, status = 'Todos', q = '') => {
     setCarregando(true)
@@ -222,6 +223,26 @@ export default function DashboardPage() {
     }
   }
 
+  const importarXml = async (arquivo: File) => {
+    setXmlImport({ running: true, mensagem: 'Processando XMLs...' })
+    try {
+      const formData = new FormData()
+      formData.append('empresa_id', EMPRESA_ID)
+      formData.append('arquivo', arquivo)
+      const res = await fetch('/api/xml/importar', {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer interno' },
+        body: formData,
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? 'Erro ao importar')
+      setXmlImport({ running: false, mensagem: data.message })
+      await carregarCtes(1, filtroStatus, busca)
+    } catch (e: any) {
+      setXmlImport({ running: false, mensagem: '', erro: e.message })
+    }
+  }
+
   const progresso = sync.total > 0 ? Math.round((sync.pagina / sync.total) * 100) : 0
 
   return (
@@ -292,6 +313,14 @@ export default function DashboardPage() {
             ) : (
               <p style={{ margin: 0, color: '#6A1B9A', fontSize: '14px' }}>🔍 Buscando transportadoras no Omie... {resolver.resolvidos} resolvidas até agora</p>
             )}
+          </div>
+        )}
+
+        {(xmlImport.running || xmlImport.mensagem || xmlImport.erro) && (
+          <div style={{ background: xmlImport.erro ? '#FFEBEE' : '#E3F2FD', border: `1px solid ${xmlImport.erro ? '#FFCDD2' : '#BBDEFB'}`, borderRadius: '12px', padding: '14px 20px', marginBottom: '16px' }}>
+            <p style={{ margin: 0, color: xmlImport.erro ? '#C62828' : '#1565C0', fontSize: '14px' }}>
+              {xmlImport.erro ? `❌ Erro: ${xmlImport.erro}` : xmlImport.running ? '⟳ Processando XMLs...' : `✅ ${xmlImport.mensagem}`}
+            </p>
           </div>
         )}
 

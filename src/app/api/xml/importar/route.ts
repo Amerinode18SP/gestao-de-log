@@ -87,6 +87,18 @@ export async function POST(req: NextRequest) {
           const modalCod = extrairTexto(xml, 'modal')
           const modal = MODAL_MAP[modalCod] || 'Rodovi\u00e1rio'
           const pesoReal = extrairPesoReal(xml)
+
+  // NF-e relacionada — chave dentro de <infNFe>
+  const infNFeIni = xml.indexOf('<infNFe>')
+  const infNFeFim = xml.indexOf('</infNFe>')
+  let nfChave = ''
+  if (infNFeIni !== -1 && infNFeFim !== -1) {
+    const infNFeBloco = xml.substring(infNFeIni, infNFeFim + 9)
+    nfChave = extrairTexto(infNFeBloco, 'chave')
+  }
+
+  // Operação — natOp
+  const natOp = extrairTexto(xml, 'natOp')
           console.log('[xml-import] ' + chave + ' dest=' + destNome + ' peso=' + pesoReal)
           const upd: Record<string, any> = {}
           if (ufIni) upd.uf_origem = ufIni

@@ -23,7 +23,6 @@ interface ResolverStatus {
 interface Resumo {
   total: number
   faturado: number
-  recebido: number
   cancelado: number
   pendente: number
   valor_total: number
@@ -48,7 +47,6 @@ const fmt = (v: number) =>
 
 const STATUS_STYLE: Record<string, { bg: string; color: string }> = {
   Faturado:  { bg: '#E8F5E9', color: '#2E7D32' },
-  Recebido:  { bg: '#E3F2FD', color: '#1565C0' },
   Cancelado: { bg: '#FFEBEE', color: '#C62828' },
   Pendente:  { bg: '#FFF8E1', color: '#E65100' },
 }
@@ -276,7 +274,6 @@ export default function DashboardPage() {
             { label: 'Total de CTes', valor: resumo?.total ?? '—', icon: '📦', cor: '#1A1916' },
             { label: 'Valor Total', valor: resumo ? fmt(resumo.valor_total) : '—', icon: '💰', cor: '#2E7D32' },
             { label: 'Faturadas', valor: resumo?.faturado ?? '—', icon: '🟢', cor: '#2E7D32' },
-            { label: 'Recebidas', valor: resumo?.recebido ?? '—', icon: '🔵', cor: '#1565C0' },
             { label: 'Pendentes', valor: resumo?.pendente ?? '—', icon: '🟡', cor: '#E65100' },
             { label: 'Canceladas', valor: resumo?.cancelado ?? '—', icon: '🔴', cor: '#C62828' },
           ].map(card => (
@@ -299,7 +296,7 @@ export default function DashboardPage() {
             onChange={e => setBusca(e.target.value)}
             style={{ flex: '1', minWidth: '240px', padding: '9px 14px', borderRadius: '8px', border: '1px solid #D8D6D0', fontSize: '13px', background: '#fff', outline: 'none' }}
           />
-          {['Todos', 'Faturado', 'Recebido', 'Pendente', 'Cancelado'].map(s => (
+          {['Todos', 'Faturado', 'Pendente', 'Cancelado'].map(s => (
             <button key={s} onClick={() => setFiltroStatus(s)} style={{ padding: '8px 14px', borderRadius: '8px', border: '1px solid', borderColor: filtroStatus === s ? '#1A1916' : '#D8D6D0', background: filtroStatus === s ? '#1A1916' : '#fff', color: filtroStatus === s ? '#fff' : '#555', fontSize: '12px', fontWeight: '500', cursor: 'pointer' }}>{s}</button>
           ))}
         </div>

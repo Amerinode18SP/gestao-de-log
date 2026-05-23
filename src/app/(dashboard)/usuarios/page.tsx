@@ -25,6 +25,7 @@ export default function UsuariosPage() {
   const { isAdmin, perfil, sair } = useAuth()
   const [usuarios, setUsuarios] = useState<Usuario[]>([])
   const [carregando, setCarregando] = useState(true)
+  const [menuAberto, setMenuAberto] = useState(false)
   const [modalAberto, setModalAberto] = useState(false)
   const [novoEmail, setNovoEmail] = useState('')
   const [novoNome, setNovoNome] = useState('')
@@ -98,21 +99,51 @@ export default function UsuariosPage() {
           <span style={{ fontSize: '15px', fontWeight: '600', color: '#F0EEE8' }}>Gestão de Frete</span>
         </div>
         <div style={{ display: 'flex', gap: '4px' }}>
-          {[
-            { label: 'CT-e', href: '/dashboard' },
-            { label: 'Relatórios', href: '/relatorios' },
-            { label: 'Alertas', href: '/alertas' },
-            { label: 'Usuários', href: '/usuarios' },
-          ].map(tab => (
+          {[{ label: 'CT-e', href: '/dashboard' }, { label: 'Relatórios', href: '/relatorios' }, { label: 'Alertas', href: '/alertas' }].map(tab => (
             <button key={tab.href} onClick={() => router.push(tab.href)}
               style={{ padding: '5px 12px', borderRadius: '6px', fontSize: '12px', border: 'none', cursor: 'pointer', background: tab.href === '/usuarios' ? 'rgba(255,255,255,0.12)' : 'transparent', color: tab.href === '/usuarios' ? '#F0EEE8' : '#888' }}>
               {tab.label}
             </button>
           ))}
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span style={{ fontSize: '11px', color: '#888' }}>{perfil?.nome || perfil?.email || ''}</span>
-          <button onClick={sair} style={{ background: 'transparent', color: '#888', border: '1px solid #444', borderRadius: '6px', padding: '4px 10px', fontSize: '11px', cursor: 'pointer' }}>Sair</button>
+        <div style={{ position: 'relative' }}>
+          <button
+            onClick={() => setMenuAberto(m => !m)}
+            style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(255,255,255,0.08)', border: '1px solid #333', borderRadius: '8px', padding: '5px 12px', cursor: 'pointer', color: '#F0EEE8', fontSize: '12px' }}
+          >
+            <span>👤</span>
+            <span>{perfil?.nome || perfil?.email?.split('@')[0] || 'Usuário'}</span>
+            <span style={{ fontSize: '10px', opacity: 0.6 }}>▼</span>
+          </button>
+          {menuAberto && (
+            <div style={{ position: 'absolute', right: 0, top: '110%', background: '#fff', borderRadius: '10px', border: '1px solid #E8E6E0', boxShadow: '0 8px 24px rgba(0,0,0,0.12)', minWidth: '180px', zIndex: 200, overflow: 'hidden' }}>
+              <div style={{ padding: '12px 16px', borderBottom: '1px solid #F0EEE8' }}>
+                <div style={{ fontSize: '12px', fontWeight: '600', color: '#1A1916' }}>{perfil?.nome || 'Usuário'}</div>
+                <div style={{ fontSize: '11px', color: '#888', marginTop: '2px' }}>{perfil?.email}</div>
+                <div style={{ marginTop: '4px' }}>
+                  <span style={{ fontSize: '10px', background: perfil?.papel === 'administrador' ? '#E6F1FB' : '#EAF3DE', color: perfil?.papel === 'administrador' ? '#0C447C' : '#27500A', padding: '2px 8px', borderRadius: '99px', fontWeight: '500' }}>
+                    {perfil?.papel === 'administrador' ? '👑 Administrador' : '👁️ Visualizador'}
+                  </span>
+                </div>
+              </div>
+              {isAdmin && (
+                <button onClick={() => { setMenuAberto(false); router.push('/usuarios') }}
+                  style={{ width: '100%', padding: '10px 16px', textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer', fontSize: '13px', color: '#1A1916', display: 'flex', alignItems: 'center', gap: '8px' }}
+                  onMouseOver={e => (e.currentTarget.style.background = '#F8F7F4')}
+                  onMouseOut={e => (e.currentTarget.style.background = 'none')}
+                >
+                  👥 Gerenciar usuários
+                </button>
+              )}
+              <button onClick={sair}
+                style={{ width: '100%', padding: '10px 16px', textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer', fontSize: '13px', color: '#C62828', display: 'flex', alignItems: 'center', gap: '8px', borderTop: '1px solid #F0EEE8' }}
+                onMouseOver={e => (e.currentTarget.style.background = '#FFF5F5')}
+                onMouseOut={e => (e.currentTarget.style.background = 'none')}
+              >
+                🚪 Sair
+              </button>
+            </div>
+          )}
         </div>
       </header>
 

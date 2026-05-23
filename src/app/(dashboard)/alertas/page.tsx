@@ -12,6 +12,7 @@ export default function AlertasPage() {
   const router = useRouter()
   const [alertas, setAlertas] = useState<Alerta[]>([])
   const [carregando, setCarregando] = useState(true)
+  const [menuAberto, setMenuAberto] = useState(false)
   const [gastoSemana, setGastoSemana] = useState(0)
   const [limiteSemana, setLimiteSemana] = useState(0)
   const [gastoMes, setGastoMes] = useState(0)

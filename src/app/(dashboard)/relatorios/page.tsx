@@ -17,6 +17,7 @@ export default function RelatoriosPage() {
   const [dataInicio, setDataInicio] = useState('2026-01-01')
   const [dataFim, setDataFim] = useState(new Date().toISOString().split('T')[0])
   const [carregando, setCarregando] = useState(true)
+  const [menuAberto, setMenuAberto] = useState(false)
   const [porMes, setPorMes] = useState<DadosMes[]>([])
   const [porFornecedor, setPorFornecedor] = useState<DadosFornecedor[]>([])
   const [porCentro, setPorCentro] = useState<DadosCentro[]>([])

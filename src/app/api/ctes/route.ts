@@ -34,6 +34,17 @@ export async function GET(req: NextRequest) {
   const supabase = createSupabaseAdmin()
   const offset = (page - 1) * limit
 
+  // Se há busca, primeiro busca fornecedor_ids que batem com o nome
+  let fornecedorIds: string[] = []
+  if (busca) {
+    const { data: forn } = await supabase
+      .from('fornecedores')
+      .select('id')
+      .eq('empresa_id', empresa_id)
+      .ilike('nome', `%${busca}%`)
+    fornecedorIds = (forn ?? []).map((f: any) => f.id)
+  }
+
   let query = supabase
     .from('ctes')
     .select(`
@@ -54,9 +65,17 @@ export async function GET(req: NextRequest) {
   }
 
   if (busca) {
-    query = query.or(
-      `numero_cte.ilike.%${busca}%,remetente_nome.ilike.%${busca}%,destinatario_nome.ilike.%${busca}%,centro_custo_nome.ilike.%${busca}%`
-    )
+    // Monta filtro OR incluindo fornecedor_id se encontrou transportadoras
+    const orParts = [
+      `numero_cte.ilike.%${busca}%`,
+      `remetente_nome.ilike.%${busca}%`,
+      `destinatario_nome.ilike.%${busca}%`,
+      `centro_custo_nome.ilike.%${busca}%`,
+    ]
+    if (fornecedorIds.length > 0) {
+      orParts.push(`fornecedor_id.in.(${fornecedorIds.join(',')})`)
+    }
+    query = query.or(orParts.join(','))
   }
 
   const { data, error, count } = await query
@@ -66,9 +85,7 @@ export async function GET(req: NextRequest) {
   }
 
   const ctes = (data ?? []).map((c: any) => {
-    // Extrair UF de origem da chave de acesso se não estiver no banco
     const uf_origem = c.uf_origem || ufDaChave(c.chave_acesso)
-
     return {
       ...c,
       uf_origem,

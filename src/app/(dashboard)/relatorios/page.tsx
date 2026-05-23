@@ -138,14 +138,20 @@ export default function RelatoriosPage() {
           <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid #E8E6E0', padding: '20px' }}>
             <div style={{ fontSize: '14px', fontWeight: '600', marginBottom: '16px' }}>Por centro de custo</div>
             {carregando ? <div style={{ color: '#888', fontSize: '13px' }}>Carregando...</div> : (
-              <div style={{ display: 'flex', alignItems: 'flex-end', gap: '8px', height: '120px' }}>
-                {porCentro.map((c, i) => {
-                  const cores = ['#2E7D32','#1976D2','#E65100','#7B1FA2']
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {porCentro.slice(0, 8).map((c, i) => {
+                  const cores = ['#2E7D32','#1976D2','#E65100','#7B1FA2','#C62828','#0288D1','#558B2F','#FF6F00']
+                  const totalCentro = porCentro.reduce((a, x) => a + x.valor, 0)
+                  const pct = totalCentro > 0 ? ((c.valor / totalCentro) * 100).toFixed(1) : '0'
                   return (
-                    <div key={c.nome} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
-                      <div style={{ fontSize: '10px', color: '#888' }}>{fmt(c.valor).replace('R$','').trim()}</div>
-                      <div style={{ width: '100%', background: cores[i % cores.length], borderRadius: '3px 3px 0 0', height: `${Math.max((c.valor / maxCentro) * 100, 4)}px` }} />
-                      <div style={{ fontSize: '10px', color: '#888', textAlign: 'center', wordBreak: 'break-word' }}>{c.nome?.split(' ').slice(0,2).join(' ') || '—'}</div>
+                    <div key={c.nome}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginBottom: '3px' }}>
+                        <span style={{ color: '#444', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '55%' }}>{c.nome || 'Sem centro'}</span>
+                        <span style={{ color: '#888', flexShrink: 0 }}>{pct}% — {fmt(c.valor)}</span>
+                      </div>
+                      <div style={{ background: '#F0EEE8', borderRadius: '99px', height: '6px' }}>
+                        <div style={{ background: cores[i % cores.length], width: `${(c.valor / maxCentro) * 100}%`, height: '100%', borderRadius: '99px' }} />
+                      </div>
                     </div>
                   )
                 })}

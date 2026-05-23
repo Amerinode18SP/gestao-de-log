@@ -26,6 +26,8 @@ export async function GET(req: NextRequest) {
   const limit      = Number(searchParams.get('limit') ?? '50')
   const status     = searchParams.get('status')
   const busca      = searchParams.get('busca')
+  const dataInicio = searchParams.get('data_inicio')
+  const dataFim    = searchParams.get('data_fim')
 
   if (!empresa_id) {
     return NextResponse.json({ error: 'empresa_id obrigatorio' }, { status: 400 })
@@ -62,6 +64,14 @@ export async function GET(req: NextRequest) {
 
   if (status && status !== 'Todos') {
     query = query.eq('status', status)
+  }
+
+  if (dataInicio) {
+    query = query.gte('data_emissao', dataInicio)
+  }
+
+  if (dataFim) {
+    query = query.lte('data_emissao', dataFim)
   }
 
   if (busca) {

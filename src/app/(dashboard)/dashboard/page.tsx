@@ -78,8 +78,10 @@ export default function DashboardPage() {
   const [totalPages, setTotalPages] = useState(1)
   const [totalCtes, setTotalCtes] = useState(0)
   const [ultimoSync, setUltimoSync] = useState<string | null>(null)
+  const [dataInicio, setDataInicio] = useState('')
+  const [dataFim, setDataFim] = useState('')
 
-  const carregarCtes = useCallback(async (p = 1, status = 'Todos', q = '') => {
+  const carregarCtes = useCallback(async (p = 1, status = 'Todos', q = '', di = '', df = '') => {
     setCarregando(true)
     try {
       const params = new URLSearchParams({
@@ -89,6 +91,8 @@ export default function DashboardPage() {
       })
       if (status !== 'Todos') params.set('status', status === 'A vencer' ? 'Pendente' : status)
       if (q) params.set('busca', q)
+      if (di) params.set('data_inicio', di)
+      if (df) params.set('data_fim', df)
 
       const res = await fetch(`/api/ctes?${params}`)
       if (res.ok) {
@@ -102,10 +106,12 @@ export default function DashboardPage() {
     setCarregando(false)
   }, [EMPRESA_ID])
 
-  const carregarResumo = useCallback(async (status = 'Todos', q = '') => {
+  const carregarResumo = useCallback(async (status = 'Todos', q = '', di = '', df = '') => {
     const params = new URLSearchParams({ empresa_id: EMPRESA_ID })
     if (status !== 'Todos') params.set('status', status === 'A vencer' ? 'Pendente' : status)
     if (q) params.set('busca', q)
+    if (di) params.set('data_inicio', di)
+    if (df) params.set('data_fim', df)
     const res = await fetch(`/api/ctes/resumo?${params}`)
     if (res.ok) setResumo(await res.json())
   }, [EMPRESA_ID])
@@ -128,11 +134,11 @@ export default function DashboardPage() {
 
   useEffect(() => {
     const t = setTimeout(() => {
-      carregarResumo(filtroStatus, busca)
-      carregarCtes(1, filtroStatus, busca)
+      carregarResumo(filtroStatus, busca, dataInicio, dataFim)
+      carregarCtes(1, filtroStatus, busca, dataInicio, dataFim)
     }, 400)
     return () => clearTimeout(t)
-  }, [busca, filtroStatus, carregarCtes, carregarResumo])
+  }, [busca, filtroStatus, dataInicio, dataFim, carregarCtes, carregarResumo])
 
   const iniciarSync = async () => {
     setSync({ running: true, pagina: 1, total: 0, importados: 0, atualizados: 0, concluido: false })
@@ -166,8 +172,8 @@ export default function DashboardPage() {
         pagina = data.proxima_pagina
         await new Promise(r => setTimeout(r, 500))
       }
-      await carregarResumo(filtroStatus, busca)
-      await carregarCtes(1, filtroStatus, busca)
+      await carregarResumo(filtroStatus, busca, dataInicio, dataFim)
+      await carregarCtes(1, filtroStatus, busca, dataInicio, dataFim)
       await carregarUltimoSync()
     } catch (e: any) {
       setSync(s => ({ ...s, running: false, erro: e.message }))
@@ -203,7 +209,7 @@ export default function DashboardPage() {
         await new Promise(r => setTimeout(r, 800))
       }
       setResolver(s => ({ ...s, running: false, concluido: true }))
-      await carregarCtes(1, filtroStatus, busca)
+      await carregarCtes(1, filtroStatus, busca, dataInicio, dataFim)
     } catch (e: any) {
       setResolver(s => ({ ...s, running: false, erro: e.message }))
     }
@@ -223,7 +229,7 @@ export default function DashboardPage() {
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? 'Erro ao importar')
       setXmlImport({ running: false, mensagem: data.message })
-      await carregarCtes(1, filtroStatus, busca)
+      await carregarCtes(1, filtroStatus, busca, dataInicio, dataFim)
     } catch (e: any) {
       setXmlImport({ running: false, mensagem: '', erro: e.message })
     }
@@ -318,6 +324,18 @@ export default function DashboardPage() {
           {['Todos', 'Faturado', 'A vencer', 'Cancelado'].map(s => (
             <button key={s} onClick={() => setFiltroStatus(s)} style={{ padding: '8px 14px', borderRadius: '8px', border: '1px solid', borderColor: filtroStatus === s ? '#1A1916' : '#D8D6D0', background: filtroStatus === s ? '#1A1916' : '#fff', color: filtroStatus === s ? '#fff' : '#555', fontSize: '12px', fontWeight: '500', cursor: 'pointer' }}>{s}</button>
           ))}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+            <span style={{ fontSize: '12px', color: '#888780', whiteSpace: 'nowrap' }}>Data de Emissão:</span>
+            <input type="date" value={dataInicio} onChange={e => setDataInicio(e.target.value)}
+              style={{ padding: '7px 10px', borderRadius: '8px', border: '1px solid #D8D6D0', fontSize: '12px', background: '#fff', outline: 'none', cursor: 'pointer' }} />
+            <span style={{ fontSize: '12px', color: '#888780' }}>até</span>
+            <input type="date" value={dataFim} onChange={e => setDataFim(e.target.value)}
+              style={{ padding: '7px 10px', borderRadius: '8px', border: '1px solid #D8D6D0', fontSize: '12px', background: '#fff', outline: 'none', cursor: 'pointer' }} />
+            {(dataInicio || dataFim) && (
+              <button onClick={() => { setDataInicio(''); setDataFim('') }}
+                style={{ padding: '6px 10px', borderRadius: '8px', border: '1px solid #D8D6D0', background: '#fff', color: '#888', fontSize: '12px', cursor: 'pointer' }}>✕ Limpar</button>
+            )}
+          </div>
         </div>
 
         <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid #E8E6E0', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>

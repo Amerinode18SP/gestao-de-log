@@ -9,6 +9,8 @@ export async function GET(req: NextRequest) {
   const empresa_id = searchParams.get('empresa_id')
   const status     = searchParams.get('status')
   const busca      = searchParams.get('busca')
+  const dataInicio = searchParams.get('data_inicio')
+  const dataFim    = searchParams.get('data_fim')
 
   if (!empresa_id) {
     return NextResponse.json({ error: 'empresa_id obrigatorio' }, { status: 400 })
@@ -47,16 +49,20 @@ export async function GET(req: NextRequest) {
     let q = supabase.from('ctes').select('*', { count: 'exact', head: true }).eq('empresa_id', empresa_id)
     if (status && status !== 'Todos') q = q.eq('status', status)
     if (extraStatus) q = q.eq('status', extraStatus)
+    if (dataInicio) q = q.gte('data_emissao', dataInicio)
+    if (dataFim) q = q.lte('data_emissao', dataFim)
     q = buildOrFilter(q)
     return q
   }
 
   // Query para valor total via RPC
-  const valorQuery = supabase.rpc('sum_valor_ctes_v2', {
+  const valorQuery = supabase.rpc('sum_valor_ctes_v3', {
     p_empresa_id: empresa_id,
     p_status: status && status !== 'Todos' ? status : null,
     p_busca: busca || null,
     p_fornecedor_ids: fornecedorIds.length > 0 ? fornecedorIds : null,
+    p_data_inicio: dataInicio || null,
+    p_data_fim: dataFim || null,
   })
 
   const [total, faturado, cancelado, pendente, valorRes] = await Promise.all([

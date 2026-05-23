@@ -1,299 +1,258 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { createSupabaseBrowser } from '@/lib/supabase/client'
+import { useState, useEffect, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
+import { useAuth } from '@/hooks/useAuth'
 
-const MODULOS = [
-  { key: 'dashboard',     label: 'Dashboard' },
-  { key: 'cte',           label: 'CT-e' },
-  { key: 'solicitacoes',  label: 'Solicitações' },
-  { key: 'mapa',          label: 'Mapa Logístico' },
-  { key: 'contingencia',  label: 'Contingência' },
-  { key: 'relatorios',    label: 'Relatórios' },
-  { key: 'configuracoes', label: 'Configurações' },
-  { key: 'sync',          label: 'Sincronização' },
-]
+const EMPRESA_ID = process.env.NEXT_PUBLIC_EMPRESA_ID || '22c8f1e1-3aa7-4794-a76b-fc1d4041b0ca'
 
-const PAPEL_CORES: Record<string, { bg: string; color: string }> = {
-  administrador: { bg: '#E6F1FB', color: '#0C447C' },
-  operador:      { bg: '#EAF3DE', color: '#27500A' },
-  visualizador:  { bg: '#F1EFE8', color: '#444441' },
+interface Usuario {
+  id: string
+  nome: string
+  email: string
+  papel: 'administrador' | 'visualizador'
+  ativo: boolean
+  criado_em: string
 }
 
-const PERMISSOES_PADRAO: Record<string, Record<string, boolean>> = {
-  administrador: { ver: true,  criar: true,  editar: true,  exportar: true  },
-  operador:      { ver: true,  criar: true,  editar: true,  exportar: false },
-  visualizador:  { ver: true,  criar: false, editar: false, exportar: false },
+const PAPEL_COR: Record<string, { bg: string; color: string }> = {
+  administrador: { bg: '#E6F1FB', color: '#0C447C' },
+  visualizador:  { bg: '#EAF3DE', color: '#27500A' },
 }
 
 export default function UsuariosPage() {
-  const supabase = createSupabaseBrowser()
-  const [usuarios, setUsuarios] = useState<any[]>([])
+  const router = useRouter()
+  const { isAdmin, perfil, sair } = useAuth()
+  const [usuarios, setUsuarios] = useState<Usuario[]>([])
+  const [carregando, setCarregando] = useState(true)
   const [modalAberto, setModalAberto] = useState(false)
-  const [editando, setEditando] = useState<any>(null)
-  const [loading, setLoading] = useState(false)
+  const [novoEmail, setNovoEmail] = useState('')
+  const [novoNome, setNovoNome] = useState('')
+  const [novoPapel, setNovoPapel] = useState<'administrador' | 'visualizador'>('visualizador')
+  const [enviando, setEnviando] = useState(false)
+  const [mensagem, setMensagem] = useState('')
+  const [erro, setErro] = useState('')
 
-  // Formulário novo usuário
-  const [nome, setNome] = useState('')
-  const [email, setEmail] = useState('')
-  const [papel, setPapel] = useState('operador')
-  const [permissoes, setPermissoes] = useState<Record<string, Record<string, boolean>>>({})
-
-  useEffect(() => { carregarUsuarios() }, [])
-
-  async function carregarUsuarios() {
-    const { data } = await supabase.from('vw_usuarios_completo').select('*')
-    setUsuarios(data || [])
-  }
-
-  function abrirModal(usuario?: any) {
-    if (usuario) {
-      setEditando(usuario)
-      setNome(usuario.nome)
-      setEmail(usuario.email)
-      setPapel(usuario.papel)
-      setPermissoes(usuario.permissoes || {})
-    } else {
-      setEditando(null)
-      setNome(''); setEmail(''); setPapel('operador')
-      const perms: Record<string, Record<string, boolean>> = {}
-      MODULOS.forEach(m => { perms[m.key] = { ...PERMISSOES_PADRAO['operador'] } })
-      setPermissoes(perms)
-    }
-    setModalAberto(true)
-  }
-
-  function mudarPapel(novoPapel: string) {
-    setPapel(novoPapel)
-    const perms: Record<string, Record<string, boolean>> = {}
-    MODULOS.forEach(m => {
-      const mod = m.key
-      perms[mod] = {
-        ver:      novoPapel === 'administrador' ? true  : novoPapel === 'operador' ? ['dashboard','cte','solicitacoes','mapa','relatorios'].includes(mod) : ['dashboard','mapa'].includes(mod),
-        criar:    novoPapel === 'administrador' ? true  : novoPapel === 'operador' ? ['cte','solicitacoes'].includes(mod) : false,
-        editar:   novoPapel === 'administrador' ? true  : novoPapel === 'operador' ? ['cte','solicitacoes'].includes(mod) : false,
-        exportar: novoPapel === 'administrador' ? true  : novoPapel === 'operador' ? ['dashboard','relatorios'].includes(mod) : false,
+  const carregar = useCallback(async () => {
+    setCarregando(true)
+    try {
+      const res = await fetch(`/api/usuarios?empresa_id=${EMPRESA_ID}`)
+      if (res.ok) {
+        const data = await res.json()
+        setUsuarios(data.usuarios ?? [])
       }
+    } catch (e) { console.error(e) }
+    setCarregando(false)
+  }, [])
+
+  useEffect(() => { carregar() }, [carregar])
+
+  async function convidar(e: React.FormEvent) {
+    e.preventDefault()
+    setEnviando(true)
+    setErro('')
+    setMensagem('')
+    try {
+      const res = await fetch('/api/usuarios/convidar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: novoEmail, nome: novoNome, papel: novoPapel, empresa_id: EMPRESA_ID })
+      })
+      const data = await res.json()
+      if (res.ok) {
+        setMensagem(`✅ Convite enviado para ${novoEmail}!`)
+        setNovoEmail(''); setNovoNome(''); setNovoPapel('visualizador')
+        setModalAberto(false)
+        carregar()
+      } else {
+        setErro(data.error || 'Erro ao convidar usuário')
+      }
+    } catch { setErro('Erro de conexão') }
+    setEnviando(false)
+  }
+
+  async function alterarPapel(id: string, papel: string) {
+    await fetch('/api/usuarios', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, papel })
     })
-    setPermissoes(perms)
+    carregar()
   }
 
-  function togglePermissao(modulo: string, tipo: string) {
-    setPermissoes(prev => ({
-      ...prev,
-      [modulo]: { ...prev[modulo], [tipo]: !prev[modulo]?.[tipo] }
-    }))
-  }
-
-  async function convidarUsuario() {
-    setLoading(true)
-    // Aqui chamaria a API de convite — por ora mostra confirmação
-    await new Promise(r => setTimeout(r, 800))
-    setModalAberto(false)
-    setLoading(false)
-    alert(`Convite enviado para ${email}!`)
-  }
-
-  async function toggleAtivo(usuario: any) {
-    await supabase.from('perfis_usuario')
-      .update({ ativo: !usuario.ativo })
-      .eq('id', usuario.id)
-    carregarUsuarios()
+  async function alterarAtivo(id: string, ativo: boolean) {
+    await fetch('/api/usuarios', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, ativo })
+    })
+    carregar()
   }
 
   return (
-    <div style={{ padding: '16px 20px', fontFamily: 'var(--font-sans)' }}>
-
+    <div style={{ minHeight: '100vh', background: '#F0EEE8', fontFamily: "'DM Sans', system-ui, sans-serif", color: '#1A1916' }}>
       {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-        <div>
-          <h1 style={{ fontSize: '16px', fontWeight: '600', color: '#1A1916', margin: '0 0 2px' }}>Usuários</h1>
-          <p style={{ fontSize: '12px', color: '#888780', margin: 0 }}>Gerencie acessos e permissões da equipe</p>
+      <header style={{ background: '#1A1916', padding: '0 32px', height: '56px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 100 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <span style={{ fontSize: '20px' }}>🚛</span>
+          <span style={{ fontSize: '15px', fontWeight: '600', color: '#F0EEE8' }}>Gestão de Frete</span>
         </div>
-        <button onClick={() => abrirModal()} style={{
-          display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 14px',
-          background: '#185FA5', color: '#fff', border: 'none', borderRadius: '8px',
-          fontSize: '13px', fontWeight: '500', cursor: 'pointer'
-        }}>
-          + Convidar usuário
-        </button>
-      </div>
+        <div style={{ display: 'flex', gap: '4px' }}>
+          {[
+            { label: 'CT-e', href: '/dashboard' },
+            { label: 'Relatórios', href: '/relatorios' },
+            { label: 'Alertas', href: '/alertas' },
+            { label: 'Usuários', href: '/usuarios' },
+          ].map(tab => (
+            <button key={tab.href} onClick={() => router.push(tab.href)}
+              style={{ padding: '5px 12px', borderRadius: '6px', fontSize: '12px', border: 'none', cursor: 'pointer', background: tab.href === '/usuarios' ? 'rgba(255,255,255,0.12)' : 'transparent', color: tab.href === '/usuarios' ? '#F0EEE8' : '#888' }}>
+              {tab.label}
+            </button>
+          ))}
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span style={{ fontSize: '11px', color: '#888' }}>{perfil?.nome || perfil?.email || ''}</span>
+          <button onClick={sair} style={{ background: 'transparent', color: '#888', border: '1px solid #444', borderRadius: '6px', padding: '4px 10px', fontSize: '11px', cursor: 'pointer' }}>Sair</button>
+        </div>
+      </header>
 
-      {/* Lista */}
-      <div style={{ background: '#fff', border: '0.5px solid #E2E0D8', borderRadius: '12px', overflow: 'hidden' }}>
-        {usuarios.length === 0 ? (
-          <div style={{ padding: '48px', textAlign: 'center', color: '#888780', fontSize: '13px' }}>
-            Nenhum usuário cadastrado ainda.
+      <main style={{ padding: '28px 32px', maxWidth: '900px', margin: '0 auto' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+          <div>
+            <h1 style={{ fontSize: '18px', fontWeight: '700', margin: '0 0 4px' }}>Usuários</h1>
+            <p style={{ fontSize: '13px', color: '#888780', margin: 0 }}>Gerencie acessos e perfis da equipe</p>
           </div>
-        ) : (
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
-            <thead>
-              <tr style={{ borderBottom: '0.5px solid #E2E0D8' }}>
-                {['Usuário','Papel','Acesso aos módulos','Status','Ações'].map(h => (
-                  <th key={h} style={{ padding: '10px 16px', textAlign: 'left', fontSize: '11px', color: '#888780', fontWeight: '500' }}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {usuarios.map(u => {
-                const cor = PAPEL_CORES[u.papel] || PAPEL_CORES.visualizador
-                const modulosAtivos = u.permissoes
-                  ? Object.entries(u.permissoes).filter(([, p]: any) => p.ver).map(([k]) => k)
-                  : []
-                return (
-                  <tr key={u.id} style={{ borderBottom: '0.5px solid #E2E0D8' }}>
-                    <td style={{ padding: '12px 16px' }}>
-                      <div style={{ fontWeight: '500', color: '#1A1916' }}>{u.nome}</div>
-                      <div style={{ fontSize: '11px', color: '#888780' }}>{u.email}</div>
-                    </td>
-                    <td style={{ padding: '12px 16px' }}>
-                      <span style={{ ...cor, padding: '3px 10px', borderRadius: '100px', fontSize: '11px', fontWeight: '500', display: 'inline-block' }}>
-                        {u.papel.charAt(0).toUpperCase() + u.papel.slice(1)}
-                      </span>
-                    </td>
-                    <td style={{ padding: '12px 16px' }}>
-                      <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', maxWidth: '280px' }}>
-                        {modulosAtivos.slice(0, 4).map(m => (
-                          <span key={m} style={{ background: '#F1EFE8', color: '#444441', padding: '2px 7px', borderRadius: '4px', fontSize: '10px' }}>
-                            {MODULOS.find(x => x.key === m)?.label || m}
-                          </span>
-                        ))}
-                        {modulosAtivos.length > 4 && (
-                          <span style={{ background: '#F1EFE8', color: '#888780', padding: '2px 7px', borderRadius: '4px', fontSize: '10px' }}>
-                            +{modulosAtivos.length - 4}
-                          </span>
-                        )}
-                      </div>
-                    </td>
-                    <td style={{ padding: '12px 16px' }}>
-                      <span style={{
-                        background: u.ativo ? '#EAF3DE' : '#F1EFE8',
-                        color: u.ativo ? '#27500A' : '#888780',
-                        padding: '3px 10px', borderRadius: '100px', fontSize: '11px', fontWeight: '500'
-                      }}>
-                        {u.ativo ? 'Ativo' : 'Inativo'}
-                      </span>
-                    </td>
-                    <td style={{ padding: '12px 16px' }}>
-                      <div style={{ display: 'flex', gap: '6px' }}>
-                        <button onClick={() => abrirModal(u)} style={{
-                          padding: '4px 10px', fontSize: '11px', border: '0.5px solid #D4D2CA',
-                          borderRadius: '6px', background: '#fff', cursor: 'pointer', color: '#444441'
-                        }}>Editar</button>
-                        <button onClick={() => toggleAtivo(u)} style={{
-                          padding: '4px 10px', fontSize: '11px',
-                          border: `0.5px solid ${u.ativo ? '#E8AEAE' : '#D4D2CA'}`,
-                          borderRadius: '6px', background: '#fff', cursor: 'pointer',
-                          color: u.ativo ? '#791F1F' : '#444441'
-                        }}>{u.ativo ? 'Desativar' : 'Ativar'}</button>
-                      </div>
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
+          {isAdmin && (
+            <button onClick={() => { setModalAberto(true); setErro(''); setMensagem('') }}
+              style={{ background: '#1A1916', color: '#fff', border: 'none', borderRadius: '8px', padding: '9px 18px', fontSize: '13px', fontWeight: '600', cursor: 'pointer' }}>
+              + Convidar usuário
+            </button>
+          )}
+        </div>
+
+        {mensagem && (
+          <div style={{ background: '#EAF3DE', border: '1px solid #B3D48A', borderRadius: '8px', padding: '12px 16px', marginBottom: '16px', fontSize: '13px', color: '#27500A' }}>
+            {mensagem}
+          </div>
         )}
-      </div>
 
-      {/* Modal */}
-      {modalAberto && (
-        <div style={{
-          position: 'fixed', inset: 0, background: 'rgba(0,0,0,.4)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          zIndex: 1000, padding: '16px'
-        }}>
-          <div style={{
-            background: '#fff', borderRadius: '12px', width: '100%', maxWidth: '560px',
-            maxHeight: '90vh', overflow: 'auto', padding: '24px'
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px' }}>
-              <h2 style={{ fontSize: '15px', fontWeight: '600', color: '#1A1916', margin: 0 }}>
-                {editando ? 'Editar usuário' : 'Convidar usuário'}
-              </h2>
-              <button onClick={() => setModalAberto(false)} style={{
-                background: 'none', border: 'none', fontSize: '18px', cursor: 'pointer', color: '#888780'
-              }}>×</button>
-            </div>
+        <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid #E8E6E0', overflow: 'hidden' }}>
+          <div style={{ padding: '14px 20px', borderBottom: '1px solid #F0EEE8', display: 'flex', justifyContent: 'space-between' }}>
+            <span style={{ fontSize: '14px', fontWeight: '600' }}>Membros da equipe</span>
+            <span style={{ fontSize: '12px', color: '#888780' }}>{usuarios.length} usuário(s)</span>
+          </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
-              <div>
-                <label style={{ fontSize: '12px', fontWeight: '500', color: '#444441', display: 'block', marginBottom: '4px' }}>Nome</label>
-                <input value={nome} onChange={e => setNome(e.target.value)} placeholder="Nome completo"
-                  style={{ width: '100%', padding: '8px 10px', fontSize: '13px', border: '0.5px solid #D4D2CA', borderRadius: '6px', outline: 'none', boxSizing: 'border-box' }} />
-              </div>
-              <div>
-                <label style={{ fontSize: '12px', fontWeight: '500', color: '#444441', display: 'block', marginBottom: '4px' }}>E-mail</label>
-                <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="email@empresa.com"
-                  style={{ width: '100%', padding: '8px 10px', fontSize: '13px', border: '0.5px solid #D4D2CA', borderRadius: '6px', outline: 'none', boxSizing: 'border-box' }} />
-              </div>
-            </div>
-
-            {/* Papel */}
-            <div style={{ marginBottom: '20px' }}>
-              <label style={{ fontSize: '12px', fontWeight: '500', color: '#444441', display: 'block', marginBottom: '8px' }}>Perfil de acesso</label>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: '8px' }}>
-                {(['administrador','operador','visualizador'] as const).map(p => {
-                  const cor = PAPEL_CORES[p]
+          {carregando ? (
+            <div style={{ padding: '48px', textAlign: 'center', color: '#888', fontSize: '14px' }}>Carregando...</div>
+          ) : usuarios.length === 0 ? (
+            <div style={{ padding: '48px', textAlign: 'center', color: '#888', fontSize: '14px' }}>Nenhum usuário cadastrado.</div>
+          ) : (
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+              <thead>
+                <tr style={{ background: '#F8F7F4' }}>
+                  {['Usuário', 'Email', 'Papel', 'Status', ...(isAdmin ? ['Ações'] : [])].map(h => (
+                    <th key={h} style={{ padding: '10px 16px', textAlign: 'left', fontWeight: '600', color: '#555', fontSize: '12px' }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {usuarios.map((u, i) => {
+                  const cor = PAPEL_COR[u.papel] || PAPEL_COR.visualizador
+                  const isSelf = u.id === perfil?.id
                   return (
-                    <div key={p} onClick={() => mudarPapel(p)} style={{
-                      padding: '10px', border: `1.5px solid ${papel === p ? '#185FA5' : '#E2E0D8'}`,
-                      borderRadius: '8px', cursor: 'pointer', textAlign: 'center',
-                      background: papel === p ? '#E6F1FB' : '#fff'
-                    }}>
-                      <div style={{ fontSize: '20px', marginBottom: '4px' }}>
-                        {p === 'administrador' ? '👑' : p === 'operador' ? '⚙️' : '👁️'}
-                      </div>
-                      <div style={{ fontSize: '12px', fontWeight: '500', color: papel === p ? '#0C447C' : '#444441' }}>
-                        {p.charAt(0).toUpperCase() + p.slice(1)}
-                      </div>
-                    </div>
+                    <tr key={u.id} style={{ borderTop: '1px solid #F0EEE8', background: i % 2 === 0 ? '#fff' : '#FAFAF8' }}>
+                      <td style={{ padding: '12px 16px', fontWeight: '500' }}>
+                        {u.nome} {isSelf && <span style={{ fontSize: '10px', color: '#888', background: '#F0EEE8', padding: '2px 6px', borderRadius: '4px', marginLeft: '4px' }}>você</span>}
+                      </td>
+                      <td style={{ padding: '12px 16px', color: '#666' }}>{u.email}</td>
+                      <td style={{ padding: '12px 16px' }}>
+                        <span style={{ ...cor, padding: '3px 10px', borderRadius: '99px', fontSize: '11px', fontWeight: '500' }}>
+                          {u.papel === 'administrador' ? '👑 Administrador' : '👁️ Visualizador'}
+                        </span>
+                      </td>
+                      <td style={{ padding: '12px 16px' }}>
+                        <span style={{ background: u.ativo ? '#EAF3DE' : '#F1EFE8', color: u.ativo ? '#27500A' : '#888', padding: '3px 10px', borderRadius: '99px', fontSize: '11px', fontWeight: '500' }}>
+                          {u.ativo ? 'Ativo' : 'Inativo'}
+                        </span>
+                      </td>
+                      {isAdmin && (
+                        <td style={{ padding: '12px 16px' }}>
+                          {!isSelf && (
+                            <div style={{ display: 'flex', gap: '6px' }}>
+                              <select
+                                value={u.papel}
+                                onChange={e => alterarPapel(u.id, e.target.value)}
+                                style={{ padding: '4px 8px', fontSize: '11px', border: '1px solid #D8D6D0', borderRadius: '6px', background: '#fff', cursor: 'pointer' }}
+                              >
+                                <option value="administrador">Administrador</option>
+                                <option value="visualizador">Visualizador</option>
+                              </select>
+                              <button onClick={() => alterarAtivo(u.id, !u.ativo)}
+                                style={{ padding: '4px 10px', fontSize: '11px', border: `1px solid ${u.ativo ? '#E8AEAE' : '#D4D2CA'}`, borderRadius: '6px', background: '#fff', cursor: 'pointer', color: u.ativo ? '#791F1F' : '#444' }}>
+                                {u.ativo ? 'Desativar' : 'Ativar'}
+                              </button>
+                            </div>
+                          )}
+                        </td>
+                      )}
+                    </tr>
                   )
                 })}
-              </div>
+              </tbody>
+            </table>
+          )}
+        </div>
+      </main>
+
+      {/* Modal convidar */}
+      {modalAberto && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+          <div style={{ background: '#fff', borderRadius: '12px', width: '100%', maxWidth: '420px', padding: '28px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px' }}>
+              <h2 style={{ fontSize: '16px', fontWeight: '700', margin: 0 }}>Convidar usuário</h2>
+              <button onClick={() => setModalAberto(false)} style={{ background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer', color: '#888' }}>×</button>
             </div>
 
-            {/* Permissões por módulo */}
-            {papel !== 'administrador' && (
+            <form onSubmit={convidar}>
+              <div style={{ marginBottom: '14px' }}>
+                <label style={{ fontSize: '12px', fontWeight: '500', display: 'block', marginBottom: '5px' }}>Nome</label>
+                <input value={novoNome} onChange={e => setNovoNome(e.target.value)} required placeholder="Nome completo"
+                  style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #D8D6D0', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }} />
+              </div>
+              <div style={{ marginBottom: '14px' }}>
+                <label style={{ fontSize: '12px', fontWeight: '500', display: 'block', marginBottom: '5px' }}>Email</label>
+                <input type="email" value={novoEmail} onChange={e => setNovoEmail(e.target.value)} required placeholder="email@empresa.com"
+                  style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #D8D6D0', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }} />
+              </div>
               <div style={{ marginBottom: '20px' }}>
-                <label style={{ fontSize: '12px', fontWeight: '500', color: '#444441', display: 'block', marginBottom: '8px' }}>
-                  Personalizar permissões
-                </label>
-                <div style={{ border: '0.5px solid #E2E0D8', borderRadius: '8px', overflow: 'hidden' }}>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr repeat(4,auto)', gap: 0, background: '#F5F4F0', padding: '6px 12px', fontSize: '11px', color: '#888780', fontWeight: '500' }}>
-                    <span>Módulo</span>
-                    {['Ver','Criar','Editar','Exportar'].map(t => <span key={t} style={{ width: '52px', textAlign: 'center' }}>{t}</span>)}
-                  </div>
-                  {MODULOS.map(m => (
-                    <div key={m.key} style={{ display: 'grid', gridTemplateColumns: '1fr repeat(4,auto)', gap: 0, padding: '8px 12px', borderTop: '0.5px solid #E2E0D8', alignItems: 'center' }}>
-                      <span style={{ fontSize: '12px', color: '#1A1916' }}>{m.label}</span>
-                      {(['ver','criar','editar','exportar'] as const).map(t => (
-                        <div key={t} style={{ width: '52px', textAlign: 'center' }}>
-                          <input type="checkbox"
-                            checked={permissoes[m.key]?.[t] || false}
-                            onChange={() => togglePermissao(m.key, t)}
-                            style={{ cursor: 'pointer', width: '14px', height: '14px' }} />
-                        </div>
-                      ))}
+                <label style={{ fontSize: '12px', fontWeight: '500', display: 'block', marginBottom: '8px' }}>Perfil de acesso</label>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                  {[
+                    { valor: 'administrador', label: '👑 Administrador', desc: 'Acesso total' },
+                    { valor: 'visualizador', label: '👁️ Visualizador', desc: 'Só leitura' },
+                  ].map(p => (
+                    <div key={p.valor} onClick={() => setNovoPapel(p.valor as any)}
+                      style={{ padding: '12px', border: `1.5px solid ${novoPapel === p.valor ? '#1A1916' : '#E2E0D8'}`, borderRadius: '8px', cursor: 'pointer', background: novoPapel === p.valor ? '#F8F7F4' : '#fff', textAlign: 'center' }}>
+                      <div style={{ fontSize: '14px', marginBottom: '2px' }}>{p.label}</div>
+                      <div style={{ fontSize: '11px', color: '#888' }}>{p.desc}</div>
                     </div>
                   ))}
                 </div>
               </div>
-            )}
 
-            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-              <button onClick={() => setModalAberto(false)} style={{
-                padding: '8px 16px', fontSize: '13px', border: '0.5px solid #D4D2CA',
-                borderRadius: '8px', background: '#fff', cursor: 'pointer', color: '#444441'
-              }}>Cancelar</button>
-              <button onClick={convidarUsuario} disabled={loading} style={{
-                padding: '8px 16px', fontSize: '13px', fontWeight: '500',
-                background: loading ? '#85B7EB' : '#185FA5', color: '#fff',
-                border: 'none', borderRadius: '8px', cursor: loading ? 'not-allowed' : 'pointer'
-              }}>
-                {loading ? 'Enviando...' : editando ? 'Salvar alterações' : 'Enviar convite'}
-              </button>
-            </div>
+              {erro && <div style={{ background: '#FFEBEE', border: '1px solid #FFCDD2', borderRadius: '8px', padding: '10px', marginBottom: '14px', fontSize: '12px', color: '#C62828' }}>{erro}</div>}
+
+              <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                <button type="button" onClick={() => setModalAberto(false)}
+                  style={{ padding: '9px 16px', fontSize: '13px', border: '1px solid #D8D6D0', borderRadius: '8px', background: '#fff', cursor: 'pointer' }}>
+                  Cancelar
+                </button>
+                <button type="submit" disabled={enviando}
+                  style={{ padding: '9px 16px', fontSize: '13px', fontWeight: '600', background: enviando ? '#888' : '#1A1916', color: '#fff', border: 'none', borderRadius: '8px', cursor: enviando ? 'not-allowed' : 'pointer' }}>
+                  {enviando ? 'Enviando...' : 'Enviar convite'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

@@ -9,9 +9,10 @@ export async function GET(req: NextRequest) {
 
   const { data } = await supabase
     .from('sync_logs')
-    .select('finalizado_em')
+    .select('finalizado_em, ctes_importados, ctes_atualizados')
     .eq('empresa_id', empresa_id)
     .eq('status', 'success')
+    .not('finalizado_em', 'is', null)
     .order('finalizado_em', { ascending: false })
     .limit(1)
     .single()

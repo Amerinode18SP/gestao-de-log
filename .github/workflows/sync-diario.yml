@@ -1,0 +1,19 @@
+name: Sync Diario CTes
+
+on:
+  schedule:
+    - cron: '0 3 * * *'  # 00:00 BRT (03:00 UTC)
+  workflow_dispatch:       # Permite rodar manualmente pelo GitHub
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Chamar sync de CTes
+        run: |
+          echo "Iniciando sync automatico - $(date)"
+          curl -X GET \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            -f \
+            https://gestao-de-frete.vercel.app/api/cron
+          echo "Sync concluido com sucesso!"

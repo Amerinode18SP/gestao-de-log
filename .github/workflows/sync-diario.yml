@@ -8,14 +8,53 @@ on:
 jobs:
   sync:
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     steps:
-      - name: Chamar sync de CTes
+      - name: Sync CTes em lotes
         run: |
-          echo "Iniciando sync automatico - $(date)"
-          curl -X GET \
-            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
-            --max-time 120 \
-            --retry 2 \
-            -f \
-            https://gestao-de-frete.vercel.app/api/cron
-          echo "Sync concluido!"
+          echo "Iniciando sync - $(date)"
+          PAGINA=1
+          TOTAL_IMPORTADOS=0
+          TOTAL_ATUALIZADOS=0
+
+          while true; do
+            echo "Processando pagina $PAGINA..."
+            RESPONSE=$(curl -s -X GET \
+              -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+              --max-time 90 \
+              "https://gestao-de-frete.vercel.app/api/cron?pagina=$PAGINA&modo=sync")
+
+            echo "Resposta: $RESPONSE"
+
+            PROXIMA=$(echo $RESPONSE | grep -o '"proxima_pagina":[0-9]*' | grep -o '[0-9]*')
+            IMPORTADOS=$(echo $RESPONSE | grep -o '"importados":[0-9]*' | grep -o '[0-9]*')
+            ATUALIZADOS=$(echo $RESPONSE | grep -o '"atualizados":[0-9]*' | grep -o '[0-9]*')
+
+            TOTAL_IMPORTADOS=$((TOTAL_IMPORTADOS + ${IMPORTADOS:-0}))
+            TOTAL_ATUALIZADOS=$((TOTAL_ATUALIZADOS + ${ATUALIZADOS:-0}))
+
+            if [ -z "$PROXIMA" ] || [ "$PROXIMA" = "null" ]; then
+              echo "Sync concluido! Total: $TOTAL_IMPORTADOS importados, $TOTAL_ATUALIZADOS atualizados"
+              break
+            fi
+
+            PAGINA=$PROXIMA
+            sleep 2
+          done
+
+          echo "Resolvendo transportadoras..."
+          for i in 1 2 3 4 5; do
+            RESPONSE=$(curl -s -X GET \
+              -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+              --max-time 90 \
+              "https://gestao-de-frete.vercel.app/api/cron?modo=resolver")
+            echo "Resolver resposta: $RESPONSE"
+            TEM_MAIS=$(echo $RESPONSE | grep -o '"tem_mais":true')
+            if [ -z "$TEM_MAIS" ]; then
+              echo "Transportadoras resolvidas!"
+              break
+            fi
+            sleep 2
+          done
+
+          echo "Cron concluido - $(date)"

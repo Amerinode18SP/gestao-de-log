@@ -1,11 +1,10 @@
 // ============================================================
 // FREIGHT-MS - Cron Job: Sync automático diário
-// Chamado pela Vercel todo dia às 00:00 (America/Sao_Paulo)
+// Chamado pelo GitHub Actions todo dia às 00:00 BRT
 // ============================================================
 import { NextRequest, NextResponse } from 'next/server'
 
 export async function GET(req: NextRequest) {
-  // Verificar secret para segurança
   const authHeader = req.headers.get('authorization')
   const cronSecret = process.env.CRON_SECRET
 
@@ -21,10 +20,8 @@ export async function GET(req: NextRequest) {
   try {
     console.log('[CRON] Iniciando sync automático -', new Date().toISOString())
 
-    // Chama a rota de sync existente
-    const baseUrl = process.env.VERCEL_URL
-      ? `https://${process.env.VERCEL_URL}`
-      : 'http://localhost:3000'
+    // URL fixa do sistema em produção
+    const baseUrl = 'https://gestao-de-frete.vercel.app'
 
     const res = await fetch(`${baseUrl}/api/omie/sync`, {
       method: 'POST',
@@ -34,7 +31,7 @@ export async function GET(req: NextRequest) {
 
     const data = await res.json()
 
-    console.log('[CRON] Sync concluído:', data)
+    console.log('[CRON] Sync concluído:', JSON.stringify(data))
 
     return NextResponse.json({
       ok: true,
@@ -42,7 +39,7 @@ export async function GET(req: NextRequest) {
       resultado: data,
     })
   } catch (error: any) {
-    console.error('[CRON] Erro no sync:', error)
+    console.error('[CRON] Erro:', error.message)
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 }

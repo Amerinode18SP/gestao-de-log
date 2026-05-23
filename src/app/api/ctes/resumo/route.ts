@@ -49,8 +49,8 @@ export async function GET(req: NextRequest) {
     let q = supabase.from('ctes').select('*', { count: 'exact', head: true }).eq('empresa_id', empresa_id)
     if (status && status !== 'Todos') q = q.eq('status', status)
     if (extraStatus) q = q.eq('status', extraStatus)
-    if (dataInicio) q = q.gte('data_emissao', dataInicio)
-    if (dataFim) q = q.lte('data_emissao', dataFim)
+    if (dataInicio) q = q.gte('data_emissao', dataInicio + 'T00:00:00-03:00')
+    if (dataFim) q = q.lte('data_emissao', dataFim + 'T23:59:59-03:00')
     q = buildOrFilter(q)
     return q
   }

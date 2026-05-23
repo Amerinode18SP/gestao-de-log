@@ -390,8 +390,8 @@ export default function DashboardPage() {
             <div style={{ padding: '16px 20px', borderTop: '1px solid #F0EEE8', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span style={{ fontSize: '12px', color: '#888780' }}>Página {page} de {totalPages}</span>
               <div style={{ display: 'flex', gap: '8px' }}>
-                <button onClick={() => carregarCtes(page - 1, filtroStatus, busca)} disabled={page === 1} style={{ padding: '6px 14px', borderRadius: '6px', border: '1px solid #D8D6D0', background: page === 1 ? '#f5f5f5' : '#fff', cursor: page === 1 ? 'not-allowed' : 'pointer', fontSize: '13px' }}>← Anterior</button>
-                <button onClick={() => carregarCtes(page + 1, filtroStatus, busca)} disabled={page === totalPages} style={{ padding: '6px 14px', borderRadius: '6px', border: '1px solid #D8D6D0', background: page === totalPages ? '#f5f5f5' : '#fff', cursor: page === totalPages ? 'not-allowed' : 'pointer', fontSize: '13px' }}>Próxima →</button>
+                <button onClick={() => carregarCtes(page - 1, filtroStatus, busca, dataInicio, dataFim)} disabled={page === 1} style={{ padding: '6px 14px', borderRadius: '6px', border: '1px solid #D8D6D0', background: page === 1 ? '#f5f5f5' : '#fff', cursor: page === 1 ? 'not-allowed' : 'pointer', fontSize: '13px' }}>← Anterior</button>
+                <button onClick={() => carregarCtes(page + 1, filtroStatus, busca, dataInicio, dataFim)} disabled={page === totalPages} style={{ padding: '6px 14px', borderRadius: '6px', border: '1px solid #D8D6D0', background: page === totalPages ? '#f5f5f5' : '#fff', cursor: page === totalPages ? 'not-allowed' : 'pointer', fontSize: '13px' }}>Próxima →</button>
               </div>
             </div>
           )}

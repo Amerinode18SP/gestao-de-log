@@ -9,12 +9,12 @@ export async function GET(req: NextRequest) {
 
   const supabase = createSupabaseAdmin()
 
-  // Buscar o log mais recente com status success OU o mais recente de qualquer status
+  // Pegar o log mais recente que foi finalizado (qualquer status exceto running)
   const { data } = await supabase
     .from('sync_logs')
     .select('finalizado_em, status, ctes_importados, ctes_atualizados')
     .eq('empresa_id', empresa_id)
-    .eq('status', 'success')
+    .not('finalizado_em', 'is', null)
     .order('finalizado_em', { ascending: false })
     .limit(1)
 
@@ -24,5 +24,6 @@ export async function GET(req: NextRequest) {
     ultimo_sync: ultimo?.finalizado_em ?? null,
     importados: ultimo?.ctes_importados ?? 0,
     atualizados: ultimo?.ctes_atualizados ?? 0,
+    status: ultimo?.status ?? null,
   })
 }

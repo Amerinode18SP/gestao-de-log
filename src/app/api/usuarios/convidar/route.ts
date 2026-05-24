@@ -14,7 +14,10 @@ export async function POST(request: NextRequest) {
     }
 
     const empresaId = process.env.NEXT_PUBLIC_EMPRESA_ID!
+    let linkConvite = ''
+    let usuarioId = ''
 
+    // Tenta gerar link de convite (novo usuário)
     const { data: inviteData, error: inviteError } = await supabase.auth.admin.generateLink({
       type: 'invite',
       email,
@@ -25,15 +28,30 @@ export async function POST(request: NextRequest) {
     })
 
     if (inviteError) {
-      return NextResponse.json({ error: inviteError.message }, { status: 500 })
+      // Usuário já existe — gera link de recuperação de senha
+      const { data: resetData, error: resetError } = await supabase.auth.admin.generateLink({
+        type: 'recovery',
+        email,
+        options: {
+          redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/redefinir-senha`,
+        },
+      })
+
+      if (resetError) {
+        return NextResponse.json({ error: resetError.message }, { status: 500 })
+      }
+
+      linkConvite = resetData.properties?.action_link ?? ''
+      usuarioId = resetData.user?.id ?? ''
+    } else {
+      linkConvite = inviteData.properties?.action_link ?? ''
+      usuarioId = inviteData.user?.id ?? ''
     }
 
-    const linkConvite = inviteData.properties?.action_link
-
-    const userId = inviteData.user?.id
-    if (userId) {
+    // Cria/atualiza perfil na tabela perfis_usuario
+    if (usuarioId) {
       await supabase.from('perfis_usuario').upsert({
-        id: userId,
+        id: usuarioId,
         empresa_id: empresaId,
         nome,
         email,
@@ -42,6 +60,7 @@ export async function POST(request: NextRequest) {
       })
     }
 
+    // Envia email via Resend
     const { error: emailError } = await resend.emails.send({
       from: 'Gestão de Log <onboarding@resend.dev>',
       to: email,

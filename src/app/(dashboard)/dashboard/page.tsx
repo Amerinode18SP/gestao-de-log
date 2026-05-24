@@ -121,7 +121,11 @@ export default function DashboardPage() {
     if (res.ok) setResumo(await res.json())
   }, [EMPRESA_ID])
 
-  const carregarUltimoSync = useCallback(async () => {
+  const carregarUltimoSync = useCallback(async (forcarData?: string) => {
+    if (forcarData) {
+      setUltimoSync(forcarData)
+      return
+    }
     try {
       const res = await fetch(`/api/sync-status?empresa_id=${EMPRESA_ID}`)
       if (res.ok) {
@@ -179,8 +183,7 @@ export default function DashboardPage() {
       }
       await carregarResumo(filtroStatus, busca, dataInicio, dataFim)
       await carregarCtes(1, filtroStatus, busca, dataInicio, dataFim)
-      setUltimoSync(new Date().toISOString()) // Atualiza data diretamente
-      await carregarUltimoSync()
+      await carregarUltimoSync(new Date().toISOString()) // Força data atual
       // Auto-preencher transportadoras e centros de custo após sync
       await resolverTransportadoras()
     } catch (e: any) {

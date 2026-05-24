@@ -177,7 +177,26 @@ export default function ConfiguracoesPage() {
             <p style={{ fontSize: '12px', color: '#888', margin: '-12px 0 20px' }}>
               Ex: com limite R$ 45.000 e tolerância 5%, alerta dispara em R$ 47.250
             </p>
-            {campo('Email para alertas', 'email_alertas', 'email')}
+            <div style={{ marginBottom: '20px' }}>
+              <label style={{ fontSize: '13px', fontWeight: '600', color: '#444441', display: 'block', marginBottom: '6px' }}>
+                Emails para alertas
+              </label>
+              <textarea
+                value={params.email_alertas}
+                onChange={e => setParams(p => ({ ...p, email_alertas: e.target.value }))}
+                placeholder="ana@empresa.com, joao@empresa.com"
+                rows={2}
+                style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #D8D6D0', fontSize: '13px', outline: 'none', boxSizing: 'border-box', resize: 'vertical', fontFamily: 'inherit' }}
+              />
+              <div style={{ fontSize: '11px', color: '#888780', marginTop: '4px' }}>Separe múltiplos emails com vírgula.</div>
+              {params.email_alertas && (
+                <div style={{ marginTop: '8px', display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                  {params.email_alertas.split(',').map(e => e.trim()).filter(Boolean).map((email, i) => (
+                    <span key={i} style={{ background: '#E6F1FB', color: '#0C447C', padding: '2px 10px', borderRadius: '99px', fontSize: '11px' }}>✉️ {email}</span>
+                  ))}
+                </div>
+              )}
+            </div>
             {campo('Frequência do relatório', 'frequencia_relatorio', 'select', ['Diário', 'Semanal', 'Mensal'])}
           </div>
 

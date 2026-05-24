@@ -180,6 +180,8 @@ export default function DashboardPage() {
       await carregarResumo(filtroStatus, busca, dataInicio, dataFim)
       await carregarCtes(1, filtroStatus, busca, dataInicio, dataFim)
       await carregarUltimoSync()
+      // Auto-preencher transportadoras e centros de custo após sync
+      await resolverTransportadoras()
     } catch (e: any) {
       setSync(s => ({ ...s, running: false, erro: e.message }))
     }

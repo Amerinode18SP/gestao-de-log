@@ -155,323 +155,170 @@ export default function MapeamentoPage() {
 
 
   
-  // ── SVG do mapa para PDF ──────────────────────────────
+  // ── Captura SVG do mapa ─────────────────────────────
   const capturarMapaSVG = (): string => {
     const svg = document.getElementById('mapa-brasil-svg')
     if (!svg) return ''
     return new XMLSerializer().serializeToString(svg)
   }
 
-  // ── Gráfico de barras SVG inline ──────────────────────
-  const barrasSVG = (items: ChartItem[], colorMap: Record<string,string>, width=340, height=160): string => {
+  // ── Gráfico barras SVG para PDF ───────────────────────
+  const barrasSVG = (items: ChartItem[], colorMap: Record<string,string>, w=340): string => {
     if (!items.length) return '<text x="10" y="20" font-size="11" fill="#888">Sem dados</text>'
     const maxV = Math.max(...items.map(i => i.value))
-    const rowH = Math.floor(height / Math.min(items.length, 8))
-    const rows = items.slice(0, 8).map((item, i) => {
-      const pct = maxV > 0 ? item.value / maxV : 0
-      const barW = Math.round(pct * (width - 120))
-      const color = colorMap[item.label] || '#1a56a0'
-      const y = i * rowH + 4
-      const label = item.label.length > 18 ? item.label.slice(0,17) + '…' : item.label
-      const val = item.value.toLocaleString('pt-BR', {style:'currency',currency:'BRL'})
-      return `<text x="0" y="${y+12}" font-size="9" fill="#555" font-family="Arial">${label}</text>
-<rect x="120" y="${y+2}" width="${barW}" height="${rowH-6}" fill="${color}30" rx="2"/>
-<rect x="120" y="${y+2}" width="3" height="${rowH-6}" fill="${color}" rx="1"/>
-<text x="${125+barW}" y="${y+12}" font-size="9" fill="${color}" font-family="Arial" font-weight="bold">${val}</text>`
+    return items.slice(0,8).map((item,i) => {
+      const pct  = maxV > 0 ? item.value/maxV : 0
+      const barW = Math.round(pct*(w-130))
+      const color = colorMap[item.label]||'#1a56a0'
+      const label = item.label.length>20?item.label.slice(0,19)+'…':item.label
+      const val   = item.value.toLocaleString('pt-BR',{style:'currency',currency:'BRL'})
+      const y = i*24+4
+      return `<text x="0" y="${y+14}" font-size="9" fill="#555" font-family="Arial">${label}</text>
+<rect x="128" y="${y+4}" width="${barW}" height="14" fill="${color}25" rx="2"/>
+<rect x="128" y="${y+4}" width="3" height="14" fill="${color}" rx="1"/>
+<text x="${134+barW}" y="${y+14}" font-size="9" fill="${color}" font-weight="bold" font-family="Arial">${val}</text>`
     }).join('')
-    return rows
   }
 
-  // ── Exportar Excel — CSV multi-bloco (abre direto no Excel) ──
+  // ── Exportar Excel (TSV — abre no Excel com acentos) ──
   const exportarExcel = () => {
     if (!data?.byState?.length) return
     const s = data.summary
-    const sep = '\t' // tabulação — Excel reconhece sem configuração
+    const T = '\t'
+    const fmtV = (v: number) => v.toLocaleString('pt-BR',{style:'currency',currency:'BRL'})
+    const fmtP = (v: number) => (s.totalValue>0?Math.round(v/s.totalValue*100):0)+'%'
+    const rows: string[] = []
 
-    const fmt = (v: number) => v.toLocaleString('pt-BR', {style:'currency',currency:'BRL'})
-    const pct = (v: number) => (s.totalValue > 0 ? Math.round(v/s.totalValue*100) : 0) + '%'
-
-    const linhas: string[] = []
-
-    // ── BLOCO 1: Resumo geral ──────────────────────────────
-    linhas.push('MAPEAMENTO DE REMESSAS — GESTÃO DE LOG')
-    linhas.push('Gerado em:' + sep + new Date().toLocaleString('pt-BR'))
-    linhas.push('')
-    linhas.push('=== RESUMO GERAL ===')
-    linhas.push('Valor Total Remessas' + sep + fmt(s.totalValue))
-    linhas.push('Total de CT-es'       + sep + s.totalCtes)
-    linhas.push('Estados com remessas' + sep + s.stateCount)
-    linhas.push('Ticket Médio / CT-e'  + sep + fmt(s.ticketMedio))
-    linhas.push('Estado de Maior Gasto'+ sep + (s.topState?.name||'—'))
-    linhas.push('Valor Maior Estado'   + sep + (s.topState ? fmt(s.topState.value) : '—'))
-    linhas.push('')
-
-    // ── BLOCO 2: Por estado ────────────────────────────────
-    linhas.push('=== DETALHAMENTO POR ESTADO ===')
-    linhas.push(['#','Estado','UF','CT-es','Modal Predom.','Valor Total','Ticket Médio','Participação'].join(sep))
+    rows.push('MAPEAMENTO DE REMESSAS — GESTÃO DE LOG')
+    rows.push('Gerado em:'+T+new Date().toLocaleString('pt-BR'))
+    rows.push('')
+    rows.push('=== RESUMO GERAL ===')
+    rows.push('Valor Total Remessas'+T+fmtV(s.totalValue))
+    rows.push('Total de CT-es'+T+s.totalCtes)
+    rows.push('Estados com remessas'+T+s.stateCount)
+    rows.push('Ticket Médio / CT-e'+T+fmtV(s.ticketMedio))
+    rows.push('Estado de Maior Gasto'+T+(s.topState?.name||'—'))
+    rows.push('Valor Maior Estado'+T+(s.topState?fmtV(s.topState.value):'—'))
+    rows.push('')
+    rows.push('=== DETALHAMENTO POR ESTADO ===')
+    rows.push(['#','Estado','UF','CT-es','Modal','Valor Total','Ticket Médio','Participação'].join(T))
     ;(data.byState||[]).forEach((d,i) => {
-      const ticket = d.ctes > 0 ? Math.round(d.value/d.ctes) : 0
-      linhas.push([i+1, d.name, d.uf, d.ctes, d.modal, fmt(d.value), fmt(ticket), pct(d.value)].join(sep))
+      const ticket = d.ctes>0?Math.round(d.value/d.ctes):0
+      rows.push([i+1,d.name,d.uf,d.ctes,d.modal,fmtV(d.value),fmtV(ticket),fmtP(d.value)].join(T))
     })
-    linhas.push('')
+    rows.push('')
+    rows.push('=== GASTO POR MODAL ===')
+    rows.push(['Modal','Valor Total','Participação'].join(T))
+    ;(data.byModal||[]).forEach(m => rows.push([m.label,fmtV(m.value),fmtP(m.value)].join(T)))
+    rows.push('')
+    rows.push('=== POR CENTRO DE CUSTO ===')
+    rows.push(['Centro de Custo','Valor Total','Participação'].join(T))
+    ;(data.byCC||[]).forEach(c => rows.push([c.label,fmtV(c.value),fmtP(c.value)].join(T)))
 
-    // ── BLOCO 3: Por modal ─────────────────────────────────
-    linhas.push('=== GASTO POR MODAL ===')
-    linhas.push(['Modal','Valor Total','Participação'].join(sep))
-    ;(data.byModal||[]).forEach(m => {
-      linhas.push([m.label, fmt(m.value), pct(m.value)].join(sep))
-    })
-    linhas.push('')
-
-    // ── BLOCO 4: Por centro de custo ───────────────────────
-    linhas.push('=== POR CENTRO DE CUSTO ===')
-    linhas.push(['Centro de Custo','Valor Total','Participação'].join(sep))
-    ;(data.byCC||[]).forEach(c => {
-      linhas.push([c.label, fmt(c.value), pct(c.value)].join(sep))
-    })
-
-    const bom  = '\uFEFF'
-    const blob = new Blob([bom + linhas.join('\n')], {type:'text/tab-separated-values;charset=utf-8'})
+    const blob = new Blob(['\uFEFF'+rows.join('\n'),],{type:'text/tab-separated-values;charset=utf-8'})
     const url  = URL.createObjectURL(blob)
     const a    = document.createElement('a')
-    a.href     = url
-    a.download = 'mapeamento-remessas-' + new Date().toISOString().slice(0,10) + '.xls'
-    a.click()
+    a.href=url; a.download='mapeamento-'+new Date().toISOString().slice(0,10)+'.xls'; a.click()
     URL.revokeObjectURL(url)
   }
 
-  // ── Exportar PDF ──────────────────────────────────────
+  // ── Exportar PDF (nova aba com mapa + gráficos) ───────
   const exportarPDF = () => {
     if (!data?.byState?.length) return
     const s = data.summary
     const mapaSVG = capturarMapaSVG()
+    const fmtV = (v: number) => v.toLocaleString('pt-BR',{style:'currency',currency:'BRL'})
 
-    const modalColors: Record<string,string> = { Rodoviário:'#1a56a0', Aéreo:'#2d8a60', Marítimo:'#b5742a' }
-    function labelColor(label: string): string {
-      const palette = ['#1a56a0','#2d8a60','#b5742a','#884cb5','#c0392b','#16a085','#d35400','#2980b9']
-      let hash = 0
-      for (let i = 0; i < label.length; i++) hash = label.charCodeAt(i) + ((hash << 5) - hash)
-      return palette[Math.abs(hash) % palette.length]
-    }
-    const ccColors = Object.fromEntries((data.byCC||[]).map(i => [i.label, labelColor(i.label)]))
-
-    const modalSVG  = barrasSVG(data.byModal||[], modalColors, 340, Math.max(80, (data.byModal||[]).length*22))
-    const ccSVG     = barrasSVG((data.byCC||[]).slice(0,8), ccColors, 340, Math.max(80, Math.min(8,(data.byCC||[]).length)*22))
+    const modalColors: Record<string,string> = {Rodoviário:'#1a56a0',Aéreo:'#2d8a60',Marítimo:'#b5742a'}
+    const palette = ['#1a56a0','#2d8a60','#b5742a','#884cb5','#c0392b','#16a085','#d35400','#2980b9']
+    const ccColors = Object.fromEntries((data.byCC||[]).map(i => {
+      let h=0; for(let c=0;c<i.label.length;c++) h=i.label.charCodeAt(c)+((h<<5)-h)
+      return [i.label, palette[Math.abs(h)%palette.length]]
+    }))
 
     const topEstados = (data.byState||[]).slice(0,8)
-    const maxTop = topEstados[0]?.value || 1
+    const maxTop = topEstados[0]?.value||1
     const rankingSVG = topEstados.map((d,i) => {
-      const pct = Math.round(d.value/maxTop*100)
-      const barW = Math.round(pct * 1.8)
-      const val = d.value.toLocaleString('pt-BR',{style:'currency',currency:'BRL'})
-      const y = i*24+4
-      return `<text x="0" y="${y+14}" font-size="10" fill="#555" font-family="Arial" font-weight="bold">${d.uf}</text>
-<rect x="28" y="${y+4}" width="${barW}" height="14" fill="#dbeafe" rx="2"/>
-<text x="34" y="${y+14}" font-size="9" fill="#1a56a0" font-family="Arial" font-weight="bold">${val}</text>`
+      const bw = Math.round(d.value/maxTop*220)
+      const y  = i*26+4
+      return `<text x="0" y="${y+16}" font-size="10" font-weight="bold" fill="#555" font-family="Arial">${d.uf}</text>
+<rect x="32" y="${y+4}" width="${bw}" height="16" fill="#dbeafe" rx="2"/>
+<text x="38" y="${y+16}" font-size="9" fill="#1a56a0" font-weight="bold" font-family="Arial">${fmtV(d.value)}</text>`
     }).join('')
+
+    const mRows = (data.byModal||[]).length
+    const cRows = Math.min(8,(data.byCC||[]).length)
 
     const linhasEstado = (data.byState||[]).map((d,i) => {
-      const pct = s.totalValue > 0 ? Math.round(d.value/s.totalValue*100) : 0
-      const ticket = d.ctes > 0 ? Math.round(d.value/d.ctes) : 0
-      const bg = i%2===0?'#fff':'#f9f9f9'
-      return `<tr style="background:${bg}">
-        <td style="text-align:center">${i+1}</td>
-        <td>${d.name}</td><td style="text-align:center">${d.uf}</td>
-        <td style="text-align:center">${d.ctes}</td>
-        <td style="text-align:center">${d.modal}</td>
-        <td style="text-align:right;font-weight:600">${d.value.toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}</td>
-        <td style="text-align:right">${ticket.toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}</td>
-        <td style="text-align:center;color:#1a56a0;font-weight:600">${pct}%</td>
-      </tr>`
+      const pct = s.totalValue>0?Math.round(d.value/s.totalValue*100):0
+      const ticket = d.ctes>0?Math.round(d.value/d.ctes):0
+      return `<tr style="background:${i%2===0?'#fff':'#f9f9f9'}">
+<td style="text-align:center">${i+1}</td><td>${d.name}</td>
+<td style="text-align:center">${d.uf}</td><td style="text-align:center">${d.ctes}</td>
+<td>${d.modal}</td><td style="text-align:right;font-weight:600">${fmtV(d.value)}</td>
+<td style="text-align:right">${fmtV(ticket)}</td><td style="text-align:center;color:#1a56a0;font-weight:600">${pct}%</td>
+</tr>`
     }).join('')
 
-    const mapaSVGFull = mapaSVG
-      ? `<div style="width:420px;flex-shrink:0">${mapaSVG.replace('<svg ', '<svg style="width:100%;height:auto" ')}</div>`
+    const mapHTML = mapaSVG
+      ? `<div style="width:380px;flex-shrink:0">${mapaSVG.replace('<svg ','<svg style="width:100%;height:auto" ')}</div>`
       : ''
 
-    const html = `<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-<meta charset="UTF-8">
+    const html = `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8">
 <title>Mapeamento de Remessas</title>
 <style>
-  *{box-sizing:border-box;margin:0;padding:0}
-  body{font-family:Arial,sans-serif;font-size:11px;color:#1a1916;background:#fff}
-  .page{padding:24px 28px;max-width:1100px;margin:0 auto}
-  .header{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;padding-bottom:12px;border-bottom:2px solid #1a1916}
-  .header h1{font-size:20px;font-weight:700}
-  .header .sub{font-size:10px;color:#888;margin-top:2px}
-  .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px}
-  .kpi{background:#f8f7f4;border:1px solid #e8e6e0;border-radius:8px;padding:10px 14px}
-  .kpi-label{font-size:9px;color:#888;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px}
-  .kpi-val{font-size:17px;font-weight:700;color:#1a1916}
-  .kpi-sub{font-size:9px;color:#888;margin-top:2px}
-  .section-title{font-size:13px;font-weight:700;margin-bottom:10px;padding-bottom:4px;border-bottom:1px solid #e8e6e0;display:flex;align-items:center;gap:6px}
-  .map-row{display:flex;gap:20px;margin-bottom:20px;align-items:flex-start}
-  .ranking-wrap{flex:1}
-  .charts-row{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px}
-  .chart-box{background:#f8f7f4;border:1px solid #e8e6e0;border-radius:8px;padding:12px}
-  table{width:100%;border-collapse:collapse;font-size:10px}
-  thead tr{background:#1a1916}
-  th{padding:6px 8px;text-align:left;color:#fff;font-size:9px;text-transform:uppercase;letter-spacing:.04em}
-  td{padding:5px 8px;border-bottom:1px solid #f0eee8}
-  .footer{margin-top:20px;padding-top:10px;border-top:1px solid #e8e6e0;font-size:9px;color:#aaa;text-align:center}
-  @media print{
-    body{-webkit-print-color-adjust:exact;print-color-adjust:exact}
-    .page{padding:12px 16px}
-    @page{size:A4;margin:10mm}
-  }
-</style>
-</head>
-<body>
-<div class="page">
-
-  <div class="header">
-    <div>
-      <h1>🚛 Mapeamento de Remessas</h1>
-      <div class="sub">Gestão de Log · Gerado em ${new Date().toLocaleString('pt-BR')}</div>
-    </div>
-    <div style="font-size:10px;color:#888;text-align:right">
-      <div>gestao-de-log.vercel.app</div>
-    </div>
-  </div>
-
-  <div class="kpis">
-    <div class="kpi">
-      <div class="kpi-label">Valor Total Remessas</div>
-      <div class="kpi-val">${s.totalValue.toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}</div>
-      <div class="kpi-sub">${s.totalCtes} CT-es · ${s.stateCount} estados</div>
-    </div>
-    <div class="kpi">
-      <div class="kpi-label">Ticket Médio / CT-e</div>
-      <div class="kpi-val">${s.ticketMedio.toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}</div>
-      <div class="kpi-sub">por documento</div>
-    </div>
-    <div class="kpi">
-      <div class="kpi-label">Estado de Maior Gasto</div>
-      <div class="kpi-val">${s.topState?.name||'—'}</div>
-      <div class="kpi-sub">${s.topState?s.topState.value.toLocaleString('pt-BR',{style:'currency',currency:'BRL'}):''}</div>
-    </div>
-    <div class="kpi">
-      <div class="kpi-label">Total de Estados</div>
-      <div class="kpi-val">${s.stateCount}</div>
-      <div class="kpi-sub">com remessas</div>
-    </div>
-  </div>
-
-  <div class="map-row">
-    ${mapaSVGFull}
-    <div class="ranking-wrap">
-      <div class="section-title">🏆 Top 8 Estados por Valor</div>
-      <svg viewBox="0 0 290 ${Math.max(80, topEstados.length*24+8)}" style="width:100%;display:block">
-        ${rankingSVG}
-      </svg>
-    </div>
-  </div>
-
-  <div class="charts-row">
-    <div class="chart-box">
-      <div class="section-title">🚛 Gasto por Modal</div>
-      <svg viewBox="0 0 340 ${Math.max(80,(data.byModal||[]).length*22)}" style="width:100%;display:block">
-        ${modalSVG}
-      </svg>
-    </div>
-    <div class="chart-box">
-      <div class="section-title">📋 Por Centro de Custo</div>
-      <svg viewBox="0 0 340 ${Math.max(80,Math.min(8,(data.byCC||[]).length)*22)}" style="width:100%;display:block">
-        ${ccSVG}
-      </svg>
-    </div>
-  </div>
-
-  <div class="section-title">📊 Detalhamento por Estado</div>
-  <table>
-    <thead><tr>
-      <th style="width:28px">#</th><th>Estado</th><th style="width:36px">UF</th>
-      <th style="width:48px;text-align:center">CT-es</th>
-      <th style="width:80px">Modal</th>
-      <th style="width:110px;text-align:right">Valor Total</th>
-      <th style="width:100px;text-align:right">Ticket Médio</th>
-      <th style="width:40px;text-align:center">%</th>
-    </tr></thead>
-    <tbody>${linhasEstado}</tbody>
-  </table>
-
-  <div class="footer">Gestão de Log · gestao-de-log.vercel.app · ${new Date().toLocaleDateString('pt-BR')}</div>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Arial,sans-serif;font-size:11px;color:#1a1916;background:#fff}
+.page{padding:20px 24px;max-width:1050px;margin:0 auto}
+.hdr{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:16px;padding-bottom:10px;border-bottom:2px solid #1a1916}
+.hdr h1{font-size:18px;font-weight:700}.hdr .sub{font-size:10px;color:#888;margin-top:3px}
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px}
+.kpi{background:#f8f7f4;border:1px solid #e8e6e0;border-radius:8px;padding:9px 12px}
+.kpi-l{font-size:9px;color:#888;text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px}
+.kpi-v{font-size:15px;font-weight:700}.kpi-s{font-size:9px;color:#888;margin-top:2px}
+.sec{font-size:12px;font-weight:700;margin:14px 0 8px;padding-bottom:4px;border-bottom:1px solid #e8e6e0}
+.map-row{display:flex;gap:16px;margin-bottom:14px;align-items:flex-start}
+.charts{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px}
+.cbox{background:#f8f7f4;border:1px solid #e8e6e0;border-radius:8px;padding:10px}
+.cbox-t{font-size:11px;font-weight:600;margin-bottom:8px}
+table{width:100%;border-collapse:collapse;font-size:10px}
+thead tr{background:#1a1916} th{padding:5px 7px;text-align:left;color:#fff;font-size:9px;text-transform:uppercase}
+td{padding:4px 7px;border-bottom:1px solid #f0eee8}
+.foot{margin-top:14px;padding-top:8px;border-top:1px solid #e8e6e0;font-size:9px;color:#aaa;text-align:center}
+@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact} @page{size:A4;margin:8mm}}
+</style></head><body><div class="page">
+<div class="hdr"><div><h1>🚛 Mapeamento de Remessas</h1><div class="sub">Gestão de Log · Gerado em ${new Date().toLocaleString('pt-BR')}</div></div></div>
+<div class="kpis">
+  <div class="kpi"><div class="kpi-l">Valor Total Remessas</div><div class="kpi-v">${fmtV(s.totalValue)}</div><div class="kpi-s">${s.totalCtes} CT-es · ${s.stateCount} estados</div></div>
+  <div class="kpi"><div class="kpi-l">Ticket Médio / CT-e</div><div class="kpi-v">${fmtV(s.ticketMedio)}</div><div class="kpi-s">por documento</div></div>
+  <div class="kpi"><div class="kpi-l">Estado de Maior Gasto</div><div class="kpi-v">${s.topState?.name||'—'}</div><div class="kpi-s">${s.topState?fmtV(s.topState.value):''}</div></div>
+  <div class="kpi"><div class="kpi-l">Total de Estados</div><div class="kpi-v">${s.stateCount}</div><div class="kpi-s">com remessas</div></div>
 </div>
-<script>window.onload=()=>window.print()</script>
-</body></html>`
+<div class="map-row">
+  ${mapHTML}
+  <div style="flex:1">
+    <div class="sec">🏆 Top 8 Estados por Valor</div>
+    <svg viewBox="0 0 290 ${Math.max(80,topEstados.length*26+8)}" style="width:100%;display:block">${rankingSVG}</svg>
+  </div>
+</div>
+<div class="charts">
+  <div class="cbox"><div class="cbox-t">🚛 Gasto por Modal</div>
+    <svg viewBox="0 0 340 ${Math.max(60,mRows*24+8)}" style="width:100%;display:block">${barrasSVG(data.byModal||[],modalColors)}</svg>
+  </div>
+  <div class="cbox"><div class="cbox-t">📋 Por Centro de Custo</div>
+    <svg viewBox="0 0 340 ${Math.max(60,cRows*24+8)}" style="width:100%;display:block">${barrasSVG((data.byCC||[]).slice(0,8),ccColors)}</svg>
+  </div>
+</div>
+<div class="sec">📊 Detalhamento por Estado</div>
+<table><thead><tr><th>#</th><th>Estado</th><th>UF</th><th>CT-es</th><th>Modal</th><th style="text-align:right">Valor Total</th><th style="text-align:right">Ticket Médio</th><th>%</th></tr></thead>
+<tbody>${linhasEstado}</tbody></table>
+<div class="foot">Gestão de Log · gestao-de-log.vercel.app · ${new Date().toLocaleDateString('pt-BR')}</div>
+</div><script>window.onload=()=>window.print()</script></body></html>`
 
-    const blob = new Blob([html], { type: 'text/html;charset=utf-8' })
-    const url = URL.createObjectURL(blob)
-    window.open(url, '_blank')
-    setTimeout(() => URL.revokeObjectURL(url), 15000)
-  }
-
-  // ── Exportar Excel (múltiplas abas via SheetJS) ───────
-  const exportarExcel = async () => {
-    if (!data?.byState?.length) return
-    const s = data.summary
-
-    // Carrega SheetJS dinamicamente
-    const XLSX = await import('https://cdn.sheetjs.com/xlsx-0.20.3/package/xlsx.mjs' as any)
-
-    const wb = XLSX.utils.book_new()
-
-    // ── ABA 1: Resumo ──────────────────────────────────
-    const wsResumo = XLSX.utils.aoa_to_sheet([
-      ['Mapeamento de Remessas — Gestão de Log'],
-      ['Gerado em:', new Date().toLocaleString('pt-BR')],
-      [],
-      ['INDICADOR', 'VALOR'],
-      ['Valor Total Remessas', s.totalValue],
-      ['Total de CT-es', s.totalCtes],
-      ['Estados com Remessas', s.stateCount],
-      ['Ticket Médio / CT-e', s.ticketMedio],
-      ['Estado de Maior Gasto', s.topState?.name || '—'],
-      ['Valor Maior Estado', s.topState?.value || 0],
-    ])
-    XLSX.utils.book_append_sheet(wb, wsResumo, 'Resumo')
-
-    // ── ABA 2: Por Estado ──────────────────────────────
-    const estadoData = [
-      ['#', 'Estado', 'UF', 'CT-es', 'Modal Predominante', 'Valor Total (R$)', 'Ticket Médio (R$)', 'Participação %'],
-      ...(data.byState||[]).map((d,i) => {
-        const pct = s.totalValue > 0 ? Math.round(d.value/s.totalValue*100) : 0
-        const ticket = d.ctes > 0 ? Math.round(d.value/d.ctes) : 0
-        return [i+1, d.name, d.uf, d.ctes, d.modal, d.value, ticket, pct/100]
-      })
-    ]
-    const wsEstado = XLSX.utils.aoa_to_sheet(estadoData)
-    // Formata colunas de valor como moeda
-    wsEstado['!cols'] = [{wch:4},{wch:22},{wch:6},{wch:8},{wch:16},{wch:18},{wch:16},{wch:14}]
-    XLSX.utils.book_append_sheet(wb, wsEstado, 'Por Estado')
-
-    // ── ABA 3: Por Modal ───────────────────────────────
-    const wsModal = XLSX.utils.aoa_to_sheet([
-      ['Modal', 'Valor Total (R$)', 'Participação %'],
-      ...(data.byModal||[]).map(m => [
-        m.label, m.value,
-        s.totalValue > 0 ? m.value/s.totalValue : 0
-      ])
-    ])
-    wsModal['!cols'] = [{wch:16},{wch:18},{wch:14}]
-    XLSX.utils.book_append_sheet(wb, wsModal, 'Por Modal')
-
-    // ── ABA 4: Por Centro de Custo ────────────────────
-    const wsCC = XLSX.utils.aoa_to_sheet([
-      ['Centro de Custo', 'Valor Total (R$)', 'Participação %'],
-      ...(data.byCC||[]).map(c => [
-        c.label, c.value,
-        s.totalValue > 0 ? c.value/s.totalValue : 0
-      ])
-    ])
-    wsCC['!cols'] = [{wch:36},{wch:18},{wch:14}]
-    XLSX.utils.book_append_sheet(wb, wsCC, 'Por Centro de Custo')
-
-    // Salva
-    const nome = 'mapeamento-remessas-' + new Date().toISOString().slice(0,10) + '.xlsx'
-    XLSX.writeFile(wb, nome)
+    const blob = new Blob([html],{type:'text/html;charset=utf-8'})
+    const url  = URL.createObjectURL(blob)
+    window.open(url,'_blank')
+    setTimeout(()=>URL.revokeObjectURL(url),15000)
   }
 
   const s = data?.summary

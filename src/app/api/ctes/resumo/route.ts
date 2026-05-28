@@ -29,41 +29,15 @@ export async function GET(req: NextRequest) {
     fornecedorIds = (forn ?? []).map((f: any) => f.id)
   }
 
-  const aplicarFiltrosBase = (q: any) => {
-    q = q
+  // Monta filtros de data e busca como string SQL para usar no rpc
+  // Usamos queries separadas com count para contagens
+  const makeCount = (extraEq?: { col: string; val: string }) => {
+    let q = supabase
+      .from('ctes')
+      .select('*', { count: 'exact', head: true })
       .eq('empresa_id', empresa_id)
-      .neq('status', 'Cancelado')
 
-    if (dataInicio) q = q.gte('data_emissao', dataInicio)
-    if (dataFim)    q = q.lte('data_emissao', dataFim)
-
-    if (busca) {
-      const orParts = [
-        `numero_cte.ilike.%${busca}%`,
-        `remetente_nome.ilike.%${busca}%`,
-        `destinatario_nome.ilike.%${busca}%`,
-        `centro_custo_nome.ilike.%${busca}%`,
-      ]
-      if (fornecedorIds.length > 0) {
-        orParts.push(`fornecedor_id.in.(${fornecedorIds.join(',')})`)
-      }
-      q = q.or(orParts.join(','))
-    }
-    return q
-  }
-
-  const baseCount = (extraStatus?: string) => {
-    let q = supabase.from('ctes').select('*', { count: 'exact', head: true })
-    q = aplicarFiltrosBase(q)
-    // Se filtro global de status ativo (e não é Cancelado que já exclui)
-    if (status && status !== 'Todos' && status !== 'Cancelado') q = q.eq('status', status)
-    if (extraStatus) q = q.eq('status', extraStatus)
-    return q
-  }
-
-  const totalQuery = () => {
-    let q = supabase.from('ctes').select('*', { count: 'exact', head: true })
-    q = q.eq('empresa_id', empresa_id)
+    if (extraEq) q = q.eq(extraEq.col, extraEq.val)
     if (dataInicio) q = q.gte('data_emissao', dataInicio)
     if (dataFim)    q = q.lte('data_emissao', dataFim)
     if (busca) {
@@ -81,42 +55,59 @@ export async function GET(req: NextRequest) {
     return q
   }
 
-  const valorQuery = () => {
-    let q = supabase.from('ctes').select('valor_servico')
-    q = q.eq('empresa_id', empresa_id).neq('status', 'Cancelado')
-    if (dataInicio) q = q.gte('data_emissao', dataInicio)
-    if (dataFim)    q = q.lte('data_emissao', dataFim)
-    if (status && status !== 'Todos' && status !== 'Cancelado') q = q.eq('status', status)
-    if (busca) {
-      const orParts = [
-        `numero_cte.ilike.%${busca}%`,
-        `remetente_nome.ilike.%${busca}%`,
-        `destinatario_nome.ilike.%${busca}%`,
-        `centro_custo_nome.ilike.%${busca}%`,
-      ]
-      if (fornecedorIds.length > 0) {
-        orParts.push(`fornecedor_id.in.(${fornecedorIds.join(',')})`)
+  // Valor total: busca em lotes de 1000 para somar tudo (igual ao Mapeamento)
+  const calcValorTotal = async () => {
+    let total = 0
+    let from = 0
+    const PAGE = 1000
+    const filtroStatus = (status && status !== 'Todos') ? status : null
+
+    while (true) {
+      let q = supabase
+        .from('ctes')
+        .select('valor_servico')
+        .eq('empresa_id', empresa_id)
+        .neq('status', 'Cancelado')
+        .range(from, from + PAGE - 1)
+
+      if (filtroStatus) q = q.eq('status', filtroStatus)
+      if (dataInicio) q = q.gte('data_emissao', dataInicio)
+      if (dataFim)    q = q.lte('data_emissao', dataFim)
+      if (busca) {
+        const orParts = [
+          `numero_cte.ilike.%${busca}%`,
+          `remetente_nome.ilike.%${busca}%`,
+          `destinatario_nome.ilike.%${busca}%`,
+          `centro_custo_nome.ilike.%${busca}%`,
+        ]
+        if (fornecedorIds.length > 0) {
+          orParts.push(`fornecedor_id.in.(${fornecedorIds.join(',')})`)
+        }
+        q = q.or(orParts.join(','))
       }
-      q = q.or(orParts.join(','))
+
+      const { data, error } = await q
+      if (error || !data) break
+      total += data.reduce((a: number, r: any) => a + (r.valor_servico ?? 0), 0)
+      if (data.length < PAGE) break
+      from += PAGE
     }
-    return q
+    return total
   }
 
-  const [totalRes, faturado, cancelado, pendente, valoresRes] = await Promise.all([
-    totalQuery(),
-    baseCount('Faturado'),
+  const [totalRes, faturado, cancelado, pendente, valor_total] = await Promise.all([
+    makeCount(),
+    makeCount({ col: 'status', val: 'Faturado' }),
     supabase.from('ctes').select('*', { count: 'exact', head: true }).eq('empresa_id', empresa_id).eq('status', 'Cancelado'),
-    baseCount('Pendente'),
-    valorQuery(),
+    makeCount({ col: 'status', val: 'Pendente' }),
+    calcValorTotal(),
   ])
 
-  const valor_total = (valoresRes.data ?? []).reduce((a: number, r: any) => a + (r.valor_servico ?? 0), 0)
-
   return NextResponse.json({
-    total:      totalRes.count    ?? 0,
-    faturado:   faturado.count    ?? 0,
-    cancelado:  cancelado.count   ?? 0,
-    pendente:   pendente.count    ?? 0,
+    total:      totalRes.count  ?? 0,
+    faturado:   faturado.count  ?? 0,
+    cancelado:  cancelado.count ?? 0,
+    pendente:   pendente.count  ?? 0,
     valor_total,
   })
 }

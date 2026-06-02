@@ -38,18 +38,28 @@ export async function POST(req: NextRequest) {
     }
 
     // 2. Define janela de datas
+    //    Semanal: ultima semana fechada (segunda anterior a domingo anterior).
+    //    Mensal: mesmo intervalo de hoje 1 mes atras ate hoje.
     const hoje = new Date()
-    const ini = new Date(hoje)
+    let ini: Date
+    let fim: Date
     if (freq === 'Mensal') {
-      ini.setMonth(hoje.getMonth() - 1)
+      ini = new Date(hoje); ini.setMonth(hoje.getMonth() - 1)
+      fim = new Date(hoje)
     } else {
-      ini.setDate(hoje.getDate() - 7)
+      // Quero a semana fechada anterior: segunda passada ate domingo passado.
+      // getDay: 0=Dom, 1=Seg, 2=Ter, ... 6=Sab.
+      const dow = hoje.getDay()
+      // Diferença ate o ULTIMO domingo (1 se hoje for segunda, 7 se for domingo, ...)
+      const diasAteDomingoAnterior = dow === 0 ? 7 : dow
+      fim = new Date(hoje); fim.setDate(hoje.getDate() - diasAteDomingoAnterior)
+      ini = new Date(fim); ini.setDate(fim.getDate() - 6)  // segunda da mesma semana = domingo - 6
     }
     const iniStr = ini.toISOString().slice(0, 10)
-    const hojeStr = hoje.toISOString().slice(0, 10)
+    const hojeStr = fim.toISOString().slice(0, 10)
     const periodoLabel = freq === 'Mensal'
-      ? `Relatório mensal — ${fmtBR(ini)} a ${fmtBR(hoje)}`
-      : `Relatório semanal — ${fmtBR(ini)} a ${fmtBR(hoje)}`
+      ? `Relatório mensal — ${fmtBR(ini)} a ${fmtBR(fim)}`
+      : `Relatório semanal — ${fmtBR(ini)} a ${fmtBR(fim)}`
 
     // 3. Agrega dados do período (KPIs e ranking)
     //    Inclui CTes Faturado e Pendente ("A vencer" no display).

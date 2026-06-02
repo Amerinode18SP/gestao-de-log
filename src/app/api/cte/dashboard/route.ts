@@ -32,69 +32,99 @@ export async function GET(req: NextRequest) {
   const inicioSemana = new Date(agora)
   inicioSemana.setDate(agora.getDate() - agora.getDay())
 
-  // Buscar em paralelo
+  // Helper: pagina queries pra ultrapassar o limit de 1000 do Supabase
+  // (sem isso o dashboard mostrava valores cortados — bug!).
+  async function fetchAll<T>(queryFn: (from: number, to: number) => Promise<{ data: T[] | null }>) {
+    const PAGE = 1000
+    const acc: T[] = []
+    let from = 0
+    while (from < 20000) {  // safety cap 20k
+      const { data } = await queryFn(from, from + PAGE - 1)
+      if (!data || !data.length) break
+      acc.push(...data)
+      if (data.length < PAGE) break
+      from += PAGE
+    }
+    return acc
+  }
+
+  const STATUS = ['Faturado', 'Recebido']
+
+  // Buscar em paralelo (cada uma paginada)
   const [
-    { data: ctePeriodo },
-    { data: cteSemana },
-    { data: porFornecedor },
-    { data: porModal },
-    { data: porEstado },
-    { data: porCentro },
+    ctePeriodo,
+    cteSemana,
+    porFornecedor,
+    porModal,
+    porEstado,
+    porCentro,
     { data: parametros },
     { data: alertas },
-    { data: faturamento },
+    faturamento,
   ] = await Promise.all([
     // CT-e do período
-    supabase
+    fetchAll<any>((f, t) => supabase
       .from('ctes')
       .select('id, status, valor_servico, peso_taxado, modal, data_emissao')
       .eq('empresa_id', empresa_id)
-      .in('status', ['Faturado', 'Recebido'])
+      .in('status', STATUS)
       .gte('data_emissao', intervalo.inicio)
-      .lte('data_emissao', intervalo.fim),
+      .lte('data_emissao', intervalo.fim)
+      .range(f, t)
+    ),
 
     // Gasto semanal
-    supabase
+    fetchAll<any>((f, t) => supabase
       .from('ctes')
       .select('valor_servico')
       .eq('empresa_id', empresa_id)
-      .in('status', ['Faturado', 'Recebido'])
-      .gte('data_emissao', inicioSemana.toISOString().split('T')[0]),
+      .in('status', STATUS)
+      .gte('data_emissao', inicioSemana.toISOString().split('T')[0])
+      .range(f, t)
+    ),
 
     // Por fornecedor
-    supabase
+    fetchAll<any>((f, t) => supabase
       .from('ctes')
       .select('fornecedor_id, valor_servico, fornecedor:fornecedores(nome)')
       .eq('empresa_id', empresa_id)
-      .in('status', ['Faturado', 'Recebido'])
+      .in('status', STATUS)
       .gte('data_emissao', intervalo.inicio)
-      .not('fornecedor_id', 'is', null),
+      .not('fornecedor_id', 'is', null)
+      .range(f, t)
+    ),
 
     // Por modal
-    supabase
+    fetchAll<any>((f, t) => supabase
       .from('ctes')
       .select('modal, valor_servico')
       .eq('empresa_id', empresa_id)
-      .in('status', ['Faturado', 'Recebido'])
-      .gte('data_emissao', intervalo.inicio),
+      .in('status', STATUS)
+      .gte('data_emissao', intervalo.inicio)
+      .range(f, t)
+    ),
 
     // Por estado
-    supabase
+    fetchAll<any>((f, t) => supabase
       .from('ctes')
       .select('uf_destino, modal, valor_servico')
       .eq('empresa_id', empresa_id)
-      .in('status', ['Faturado', 'Recebido'])
+      .in('status', STATUS)
       .gte('data_emissao', intervalo.inicio)
-      .not('uf_destino', 'is', null),
+      .not('uf_destino', 'is', null)
+      .range(f, t)
+    ),
 
     // Por centro de custo
-    supabase
+    fetchAll<any>((f, t) => supabase
       .from('ctes')
       .select('centro_custo_id, valor_servico, centro_custo:centros_custo(nome)')
       .eq('empresa_id', empresa_id)
-      .in('status', ['Faturado', 'Recebido'])
+      .in('status', STATUS)
       .gte('data_emissao', intervalo.inicio)
-      .not('centro_custo_id', 'is', null),
+      .not('centro_custo_id', 'is', null)
+      .range(f, t)
+    ),
 
     // Parâmetros de alerta
     supabase
@@ -113,11 +143,13 @@ export async function GET(req: NextRequest) {
       .limit(10),
 
     // Faturamento / margens
-    supabase
+    fetchAll<any>((f, t) => supabase
       .from('solicitacoes_frete')
       .select('valor_cotado_cliente, valor_real_pago, margem_bruta, status')
       .eq('empresa_id', empresa_id)
-      .gte('criado_em', intervalo.inicio),
+      .gte('criado_em', intervalo.inicio)
+      .range(f, t)
+    ),
   ])
 
   // Agregar métricas

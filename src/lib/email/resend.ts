@@ -185,17 +185,19 @@ function kpiCard(label: string, valor: string, cor: string) {
 }
 
 // Barra vertical (gráfico). totalColunas = quantas colunas vão lado a lado.
+// Usa <table bgcolor height> em vez de <div height> pra renderizar em
+// Outlook desktop (Outlook ignora style="height" em div).
 function colunaBarra(label: string, valor: number, max: number, totalColunas: number, cor = '#185FA5') {
-  const alturaPx = max > 0 ? Math.round((valor / max) * 130) : 0
+  const alturaPx = max > 0 && valor > 0 ? Math.max(2, Math.round((valor / max) * 130)) : 2
+  const espacoPx = 132 - alturaPx
   const w = Math.floor(100 / Math.max(totalColunas, 1))
   return `
     <td valign="bottom" style="padding:0 3px;text-align:center" width="${w}%">
       <div style="font-size:9px;color:#666;margin-bottom:4px;white-space:nowrap">${fmtN(valor)}</div>
-      <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="height:130px"><tr>
-        <td valign="bottom" style="text-align:center">
-          <div style="background:${cor};width:28px;height:${alturaPx}px;margin:0 auto;border-radius:3px 3px 0 0"></div>
-        </td>
-      </tr></table>
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" width="28">
+        <tr><td height="${espacoPx}" style="font-size:1px;line-height:1px">&nbsp;</td></tr>
+        <tr><td bgcolor="${cor}" height="${alturaPx}" style="background-color:${cor};font-size:1px;line-height:1px">&nbsp;</td></tr>
+      </table>
       <div style="font-size:10px;color:#888;margin-top:6px">${escapeHtml(label)}</div>
     </td>`
 }
@@ -262,7 +264,7 @@ export function templateRelatorio(p: RelatorioParams) {
         <tr><td style="padding:8px 28px 18px">
           <div style="background:#FAFAF8;padding:18px;border:1px solid #E8E6E0;border-radius:8px">
             <div style="font-size:13px;font-weight:600;color:#1A1916;margin-bottom:4px">CT-e por dia da semana</div>
-            <div style="font-size:11px;color:#888;margin-bottom:14px">Mês atual (${escapeHtml(p.mesAtualLabel)}) — só dias úteis</div>
+            <div style="font-size:11px;color:#888;margin-bottom:14px">${escapeHtml(p.mesAtualLabel)} — só dias úteis</div>
             <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%"><tr>
               ${p.porDiaSemana.map(d => colunaBarra(d.label, d.valor, maxDia, p.porDiaSemana.length, '#2E7D32')).join('')}
             </tr></table>

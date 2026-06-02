@@ -109,21 +109,23 @@ export async function POST(req: NextRequest) {
       ? gastosAnual.reduce((s, m) => s + m.valor, 0) / mesesAtivos
       : 0
 
-    // 5. Distribuição POR DIA DA SEMANA — do mês atual
-    const inicioMes = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, '0')}-01`
-    const { data: ctesMesAtual } = await supabase
+    // 5. Distribuição POR DIA DA SEMANA — últimos 30 dias
+    //    (mes atual pode estar quase vazio se hoje for dia 1 ou 2)
+    const inicio30d = new Date(hoje.getTime() - 30 * 24 * 60 * 60 * 1000)
+    const inicio30dStr = inicio30d.toISOString().slice(0, 10)
+    const { data: ctesUltimos30 } = await supabase
       .from('ctes')
       .select('valor_servico, data_emissao')
       .eq('empresa_id', empresa_id)
       .neq('status', 'Cancelado')
-      .gte('data_emissao', inicioMes)
+      .gte('data_emissao', inicio30dStr)
       .lte('data_emissao', hojeStr)
 
     const nomesDia = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
     const porDiaSemana: { label: string; valor: number }[] = []
     for (let d = 1; d <= 5; d++) {  // segunda (1) a sexta (5) — comercial
       let total = 0
-      ;(ctesMesAtual ?? []).forEach((r: any) => {
+      ;(ctesUltimos30 ?? []).forEach((r: any) => {
         if (!r.data_emissao) return
         const dt = new Date(r.data_emissao + 'T12:00:00')   // meio-dia evita borda timezone
         if (dt.getDay() === d) total += r.valor_servico ?? 0
@@ -140,7 +142,7 @@ export async function POST(req: NextRequest) {
       ticketMedio,
       gastosAnual,
       porDiaSemana,
-      mesAtualLabel: `${nomesMes[hoje.getMonth()]}/${hoje.getFullYear()}`,
+      mesAtualLabel: `últimos 30 dias`,
       porTransportadora,
       porCentroCusto,
     })

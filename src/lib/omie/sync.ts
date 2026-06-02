@@ -123,10 +123,12 @@ export async function syncCtes(
       } catch (err: any) {
         const msg = err.message ?? ''
         const m = msg.match(/(\d+)\s*segundos/)
-        // Rate limit duro do Omie (MISUSE_API_PROCESS) → para o lote graciosamente
+        // Rate limit duro do Omie → para o lote graciosamente
+        // Cobre: MISUSE_API_PROCESS, REDUNDANT, bloqueio por consumo
         if (msg.includes('bloqueada') || msg.includes('consumo indevido') ||
-            msg.includes('MISUSE_API_PROCESS') || m) {
-          segundosParaTentar = m ? Number(m[1]) : 180
+            msg.includes('MISUSE_API_PROCESS') || msg.includes('REDUNDANT') ||
+            msg.includes('Consumo redundante') || m) {
+          segundosParaTentar = m ? Number(m[1]) : 60
           abortadoPorRateLimit = true
           console.warn(`[sync] Rate limit Omie — pag ${pagina}. Aguarde ${segundosParaTentar}s.`)
           break

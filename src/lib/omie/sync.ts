@@ -3,6 +3,7 @@
 // ============================================================
 
 import { createClient } from '@supabase/supabase-js'
+import { randomUUID } from 'node:crypto'
 import { OmieClient, createOmieClient } from './client'
 import { SyncResult, OmieCte } from '@/types'
 
@@ -166,7 +167,7 @@ export async function syncCtes(
         // pra CTes novas (existentes ja tem id, mantemos).
         return {
           ...OmieClient.normalizar(raw, empresaId, fornecedorId, centroCustoId),
-          id: existente?.id ?? globalThis.crypto.randomUUID(),
+          id: existente?.id ?? randomUUID(),
         }
       })
 

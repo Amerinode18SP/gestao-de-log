@@ -162,9 +162,11 @@ export async function syncCtes(
         const fornecedorId = fornecedorIdNovo ?? existente?.fornecedor_id ?? undefined
 
         const centroCustoId = centroMap.get(raw.cCodCentroCusto ?? '')
+        // Tabela 'ctes' exige id NOT NULL sem default — geramos UUID
+        // pra CTes novas (existentes ja tem id, mantemos).
         return {
           ...OmieClient.normalizar(raw, empresaId, fornecedorId, centroCustoId),
-          ...(existente ? { id: existente.id } : {}),
+          id: existente?.id ?? globalThis.crypto.randomUUID(),
         }
       })
 

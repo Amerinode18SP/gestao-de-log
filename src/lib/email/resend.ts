@@ -156,12 +156,14 @@ function escapeHtml(s: string) {
 // Template: Relatorio periodico (semanal/mensal) — visual com gráficos
 // ============================================================
 interface RelatorioParams {
-  periodoLabel: string                                             // "26/05 a 01/06"
+  periodoLabel: string
   totalGasto: number
   mediaMensal: number
   totalCtes: number
   ticketMedio: number
-  gastosPorMes: { label: string; valor: number }[]                 // últimos 6 meses
+  gastosAnual: { label: string; valor: number }[]                  // jan ate mes atual
+  porDiaSemana: { label: string; valor: number }[]                 // seg-sex do mes atual
+  mesAtualLabel: string
   porTransportadora: { nome: string; valor: number; ctes: number }[]
   porCentroCusto: { nome: string; valor: number }[]
 }
@@ -182,15 +184,16 @@ function kpiCard(label: string, valor: string, cor: string) {
     </td>`
 }
 
-// Barra vertical (gráfico de meses)
-function colunaMes(label: string, valor: number, max: number) {
-  const alturaPx = max > 0 ? Math.round((valor / max) * 140) : 0
+// Barra vertical (gráfico). totalColunas = quantas colunas vão lado a lado.
+function colunaBarra(label: string, valor: number, max: number, totalColunas: number, cor = '#185FA5') {
+  const alturaPx = max > 0 ? Math.round((valor / max) * 130) : 0
+  const w = Math.floor(100 / Math.max(totalColunas, 1))
   return `
-    <td valign="bottom" style="padding:0 4px;text-align:center" width="${Math.floor(100 / 6)}%">
-      <div style="font-size:9.5px;color:#666;margin-bottom:4px;white-space:nowrap">${fmtN(valor)}</div>
-      <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="height:140px"><tr>
+    <td valign="bottom" style="padding:0 3px;text-align:center" width="${w}%">
+      <div style="font-size:9px;color:#666;margin-bottom:4px;white-space:nowrap">${fmtN(valor)}</div>
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="height:130px"><tr>
         <td valign="bottom" style="text-align:center">
-          <div style="background:#185FA5;width:34px;height:${alturaPx}px;margin:0 auto;border-radius:4px 4px 0 0"></div>
+          <div style="background:${cor};width:28px;height:${alturaPx}px;margin:0 auto;border-radius:3px 3px 0 0"></div>
         </td>
       </tr></table>
       <div style="font-size:10px;color:#888;margin-top:6px">${escapeHtml(label)}</div>
@@ -215,9 +218,10 @@ function rankingLinha(nome: string, valor: number, total: number, idx: number, c
 const CORES_RANKING = ['#2E7D32', '#558B2F', '#9E9D24', '#F57F17', '#E65100', '#C62828', '#AD1457', '#6A1B9A']
 
 export function templateRelatorio(p: RelatorioParams) {
-  const maxMes = Math.max(...p.gastosPorMes.map(m => m.valor), 1)
-  const totalT  = p.porTransportadora.reduce((s, x) => s + x.valor, 0)
-  const totalC  = p.porCentroCusto.reduce((s, x) => s + x.valor, 0)
+  const maxMes = Math.max(...p.gastosAnual.map(m => m.valor), 1)
+  const maxDia = Math.max(...p.porDiaSemana.map(m => m.valor), 1)
+  const totalT = p.porTransportadora.reduce((s, x) => s + x.valor, 0)
+  const totalC = p.porCentroCusto.reduce((s, x) => s + x.valor, 0)
 
   return `<!DOCTYPE html>
 <html lang="pt-BR"><head><meta charset="UTF-8"></head>
@@ -242,13 +246,25 @@ export function templateRelatorio(p: RelatorioParams) {
           </tr></table>
         </td></tr>
 
-        <!-- Gráfico de barras: Gastos por mês -->
-        ${p.gastosPorMes.length ? `
+        <!-- Gráfico ANUAL: gastos por mês (jan ate mes atual) -->
+        ${p.gastosAnual.length ? `
         <tr><td style="padding:8px 28px 18px">
           <div style="background:#FAFAF8;padding:18px;border:1px solid #E8E6E0;border-radius:8px">
-            <div style="font-size:13px;font-weight:600;color:#1A1916;margin-bottom:14px">Gastos por mês</div>
+            <div style="font-size:13px;font-weight:600;color:#1A1916;margin-bottom:14px">Gastos por mês — ano corrente</div>
             <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%"><tr>
-              ${p.gastosPorMes.map(m => colunaMes(m.label, m.valor, maxMes)).join('')}
+              ${p.gastosAnual.map(m => colunaBarra(m.label, m.valor, maxMes, p.gastosAnual.length, '#185FA5')).join('')}
+            </tr></table>
+          </div>
+        </td></tr>` : ''}
+
+        <!-- Gráfico POR DIA DA SEMANA (mes atual) -->
+        ${p.porDiaSemana.length ? `
+        <tr><td style="padding:8px 28px 18px">
+          <div style="background:#FAFAF8;padding:18px;border:1px solid #E8E6E0;border-radius:8px">
+            <div style="font-size:13px;font-weight:600;color:#1A1916;margin-bottom:4px">CT-e por dia da semana</div>
+            <div style="font-size:11px;color:#888;margin-bottom:14px">Mês atual (${escapeHtml(p.mesAtualLabel)}) — só dias úteis</div>
+            <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%"><tr>
+              ${p.porDiaSemana.map(d => colunaBarra(d.label, d.valor, maxDia, p.porDiaSemana.length, '#2E7D32')).join('')}
             </tr></table>
           </div>
         </td></tr>` : ''}

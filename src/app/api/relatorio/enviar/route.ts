@@ -52,11 +52,13 @@ export async function POST(req: NextRequest) {
       : `Relatório semanal — ${fmtBR(ini)} a ${fmtBR(hoje)}`
 
     // 3. Agrega dados do período (KPIs e ranking)
+    //    Considera todos os status EXCETO Cancelado (= todo gasto real,
+    //    incluindo pendente/a vencer/faturado/recebido)
     const { data: ctes } = await supabase
       .from('ctes')
       .select('id, status, valor_servico, fornecedor_id, centro_custo_id, centro_custo_nome, fornecedor:fornecedores(nome), centro_custo:centros_custo(nome)')
       .eq('empresa_id', empresa_id)
-      .in('status', ['Faturado', 'Recebido'])
+      .neq('status', 'Cancelado')
       .gte('data_emissao', iniStr)
       .lte('data_emissao', hojeStr)
 
@@ -84,38 +86,61 @@ export async function POST(req: NextRequest) {
     })
     const porCentroCusto = [...centroMap.values()].sort((a, b) => b.valor - a.valor).slice(0, 10)
 
-    // 4. Comparativo dos últimos 6 meses (ano-mês x total)
-    const inicio6m = new Date(hoje.getFullYear(), hoje.getMonth() - 5, 1)
-    const inicio6mStr = inicio6m.toISOString().slice(0, 10)
-    const { data: ctesUltimos6m } = await supabase
+    // 4. Comparativo ANUAL — janeiro até mês corrente do ano vigente
+    const inicioAno = `${hoje.getFullYear()}-01-01`
+    const { data: ctesAno } = await supabase
       .from('ctes')
       .select('valor_servico, data_emissao')
       .eq('empresa_id', empresa_id)
-      .in('status', ['Faturado', 'Recebido'])
-      .gte('data_emissao', inicio6mStr)
+      .neq('status', 'Cancelado')
+      .gte('data_emissao', inicioAno)
       .lte('data_emissao', hojeStr)
 
     const nomesMes = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez']
-    const gastosPorMes: { label: string; valor: number }[] = []
-    for (let i = 5; i >= 0; i--) {
-      const d = new Date(hoje.getFullYear(), hoje.getMonth() - i, 1)
-      const ano = d.getFullYear(), mes = d.getMonth()
-      const chave = `${ano}-${String(mes + 1).padStart(2, '0')}`
-      const total = (ctesUltimos6m ?? []).filter((r: any) => String(r.data_emissao).slice(0, 7) === chave).reduce((s, r: any) => s + (r.valor_servico ?? 0), 0)
-      gastosPorMes.push({ label: `${nomesMes[mes]}/${String(ano).slice(2)}`, valor: total })
+    const gastosAnual: { label: string; valor: number }[] = []
+    for (let m = 0; m <= hoje.getMonth(); m++) {
+      const chave = `${hoje.getFullYear()}-${String(m + 1).padStart(2, '0')}`
+      const total = (ctesAno ?? []).filter((r: any) => String(r.data_emissao).slice(0, 7) === chave)
+        .reduce((s, r: any) => s + (r.valor_servico ?? 0), 0)
+      gastosAnual.push({ label: `${nomesMes[m]}/${String(hoje.getFullYear()).slice(2)}`, valor: total })
     }
-    const mediaMensal = gastosPorMes.length > 0
-      ? gastosPorMes.reduce((s, m) => s + m.valor, 0) / gastosPorMes.filter(m => m.valor > 0).length || 0
+    const mesesAtivos = gastosAnual.filter(m => m.valor > 0).length
+    const mediaMensal = mesesAtivos > 0
+      ? gastosAnual.reduce((s, m) => s + m.valor, 0) / mesesAtivos
       : 0
 
-    // 5. Renderiza template visual
+    // 5. Distribuição POR DIA DA SEMANA — do mês atual
+    const inicioMes = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, '0')}-01`
+    const { data: ctesMesAtual } = await supabase
+      .from('ctes')
+      .select('valor_servico, data_emissao')
+      .eq('empresa_id', empresa_id)
+      .neq('status', 'Cancelado')
+      .gte('data_emissao', inicioMes)
+      .lte('data_emissao', hojeStr)
+
+    const nomesDia = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
+    const porDiaSemana: { label: string; valor: number }[] = []
+    for (let d = 1; d <= 5; d++) {  // segunda (1) a sexta (5) — comercial
+      let total = 0
+      ;(ctesMesAtual ?? []).forEach((r: any) => {
+        if (!r.data_emissao) return
+        const dt = new Date(r.data_emissao + 'T12:00:00')   // meio-dia evita borda timezone
+        if (dt.getDay() === d) total += r.valor_servico ?? 0
+      })
+      porDiaSemana.push({ label: nomesDia[d], valor: total })
+    }
+
+    // 6. Renderiza template visual
     const html = templateRelatorio({
       periodoLabel,
       totalGasto,
       mediaMensal,
       totalCtes: qtd,
       ticketMedio,
-      gastosPorMes,
+      gastosAnual,
+      porDiaSemana,
+      mesAtualLabel: `${nomesMes[hoje.getMonth()]}/${hoje.getFullYear()}`,
       porTransportadora,
       porCentroCusto,
     })

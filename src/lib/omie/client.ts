@@ -79,30 +79,40 @@ export class OmieClient {
   }
 
   // ----------------------------------------------------------
-  // CT-e via endpoint específico /geral/cte/ + ListarCte
-  // Ordenado por DATA_EMISSAO desc → traz mais recentes primeiro,
-  // garante que CTes novas (ainda não viraram conta a pagar) apareçam.
+  // CT-e via Contas a Pagar (uma página).
+  // Filtra pelo período padrão (60 dias) pra trazer CTes recentes
+  // primeiro, sem precisar paginar todo o historico do Omie.
   // ----------------------------------------------------------
   async listarCtes(pagina = 1, registrosPorPagina = 50): Promise<OmieListaCteResponse> {
+    // 60 dias atrás até hoje (formato DD/MM/AAAA exigido pelo Omie)
+    const hoje = new Date()
+    const inicio = new Date(hoje.getTime() - 60 * 24 * 60 * 60 * 1000)
+    const fmt = (d: Date) =>
+      `${String(d.getDate()).padStart(2, '0')}/` +
+      `${String(d.getMonth() + 1).padStart(2, '0')}/` +
+      `${d.getFullYear()}`
+
     const data = await this.call<any>(
-      '/geral/cte/',
-      'ListarCte',
+      '/financas/contapagar/',
+      'ListarContasPagar',
       {
-        nPagina: pagina,
-        nRegPorPagina: registrosPorPagina,
-        cOrdenarPor: 'DATA_EMISSAO',
-        cOrdemDecrescente: 'S',
+        pagina,
+        registros_por_pagina: registrosPorPagina,
+        apenas_importado_api: 'N',
+        filtrar_data_de: fmt(inicio),
+        filtrar_data_ate: fmt(hoje),
       }
     )
 
-    const ctes: OmieCte[] = data.listaCte ?? []
+    const todos = data.conta_pagar_cadastro ?? []
+    const ctes  = todos.filter((r: any) => r.codigo_tipo_documento === 'CTE')
 
     return {
       nPagina:       pagina,
-      nTotPaginas:   data.nTotPaginas ?? 1,
+      nTotPaginas:   data.total_de_paginas ?? 1,
       nRegistros:    ctes.length,
-      nTotRegistros: data.nTotRegistros ?? 0,
-      listaCte:      ctes,  // já vem em formato OmieCte direto
+      nTotRegistros: data.total_de_registros ?? 0,
+      listaCte:      ctes.map((r: any) => this.mapContaPagarToCte(r)),
     }
   }
 

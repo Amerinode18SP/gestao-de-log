@@ -39,13 +39,29 @@ export async function GET(_req: NextRequest) {
   if (!process.env.OMIE_APP_KEY || !process.env.OMIE_APP_SECRET) {
     return NextResponse.json({ error: 'OMIE_APP_KEY/SECRET ausentes' }, { status: 500 })
   }
+  // Pega data 60 dias atras pro filtro
+  const hoje = new Date()
+  const inicio = new Date(hoje.getTime() - 60 * 24 * 60 * 60 * 1000)
+  const fmtBR = (d: Date) => `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`
+  const dataDe = fmtBR(inicio)
+  const dataAte = fmtBR(hoje)
+
   const candidates = [
-    { ep: '/produtos/cte/',   call: 'ListarCte',  p: { nPagina: 1, nRegPorPagina: 5, cOrdenarPor: 'DATA_EMISSAO', cOrdemDecrescente: 'S' } },
-    { ep: '/produtos/cte/',   call: 'ListarCtes', p: { nPagina: 1, nRegPorPagina: 5 } },
-    { ep: '/produtos/cte/',   call: 'ListarConhecimentoTransporte', p: { nPagina: 1, nRegPorPagina: 5 } },
-    { ep: '/produtos/cte/',   call: 'ListarCT', p: { nPagina: 1, nRegPorPagina: 5 } },
-    { ep: '/produtos/cte/',   call: 'PesquisarCte', p: { nPagina: 1, nRegPorPagina: 5 } },
-    { ep: '/geral/cte/',      call: 'ListarCte', p: { nPagina: 1, nRegPorPagina: 5 } },
+    // ListarContasPagar com filtro de data - principal candidato
+    { ep: '/financas/contapagar/', call: 'ListarContasPagar', p: {
+      pagina: 1, registros_por_pagina: 5,
+      filtrar_apenas_inclusao_titulos: 'S',
+      filtrar_data_de: dataDe, filtrar_data_ate: dataAte,
+    } },
+    { ep: '/financas/contapagar/', call: 'ListarContasPagar', p: {
+      pagina: 1, registros_por_pagina: 5,
+      filtrar_data_de: dataDe, filtrar_data_ate: dataAte,
+    } },
+    // Endpoint alternativo de CTe (incluir/cancelar)
+    { ep: '/produtos/cte/',   call: 'ConsultarCte', p: { nCodCte: 1 } },
+    { ep: '/produtos/cte/',   call: 'PesquisarCT', p: { nPagina: 1, nRegPorPagina: 5 } },
+    { ep: '/produtos/cte/',   call: 'ObterCte', p: { nPagina: 1, nRegPorPagina: 5 } },
+    { ep: '/produtos/cte/',   call: 'BuscarCte', p: { nPagina: 1, nRegPorPagina: 5 } },
   ]
   const results = []
   for (const c of candidates) {

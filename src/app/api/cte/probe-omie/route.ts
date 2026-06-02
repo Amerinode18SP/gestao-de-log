@@ -78,6 +78,8 @@ export async function GET(_req: NextRequest) {
   const results = []
   for (const c of candidates) {
     results.push(await tryCall(c.ep, c.call, c.p))
+    // Espera 3s entre chamadas pra Omie nao detectar como REDUNDANT
+    await new Promise(r => setTimeout(r, 3000))
   }
   return NextResponse.json({ results })
 }

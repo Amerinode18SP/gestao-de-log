@@ -65,6 +65,13 @@ export default function AlertasPage() {
                 <button onClick={() => { setMenuAberto(false); router.push('/usuarios') }} style={{ width: '100%', padding: '10px 16px', textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer', fontSize: '13px', color: '#1A1916' }} onMouseOver={e => (e.currentTarget.style.background='#F8F7F4')} onMouseOut={e => (e.currentTarget.style.background='none')}>👥 Gerenciar usuários</button>
                 <button onClick={() => { setMenuAberto(false); router.push('/configuracoes') }} style={{ width: '100%', padding: '10px 16px', textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer', fontSize: '13px', color: '#1A1916' }} onMouseOver={e => (e.currentTarget.style.background='#F8F7F4')} onMouseOut={e => (e.currentTarget.style.background='none')}>⚙️ Configurações</button>
               </>)}
+              <button onClick={() => router.push('/alterar-senha')}
+                style={{ width: '100%', padding: '10px 16px', textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer', fontSize: '13px', color: '#1A1916', display: 'flex', alignItems: 'center', gap: '8px' }}
+                onMouseOver={e => (e.currentTarget.style.background = '#F0EEE8')}
+                onMouseOut={e => (e.currentTarget.style.background = 'none')}
+              >
+                🔑 Alterar senha
+              </button>
               <button onClick={sair} style={{ width: '100%', padding: '10px 16px', textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer', fontSize: '13px', color: '#C62828', borderTop: '1px solid #F0EEE8' }} onMouseOver={e => (e.currentTarget.style.background='#FFF5F5')} onMouseOut={e => (e.currentTarget.style.background='none')}>🚪 Sair</button>
             </div>
           )}

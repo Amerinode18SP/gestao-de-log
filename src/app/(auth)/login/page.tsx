@@ -6,11 +6,8 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 
 export default function LoginPage() {
-  const [aba, setAba] = useState<'entrar' | 'cadastrar'>('entrar')
   const [email, setEmail] = useState('')
   const [senha, setSenha] = useState('')
-  const [nome, setNome] = useState('')
-  const [confirmar, setConfirmar] = useState('')
   const [erro, setErro] = useState('')
   const [mensagem, setMensagem] = useState('')
   const [loading, setLoading] = useState(false)
@@ -38,67 +35,6 @@ export default function LoginPage() {
 
     router.push('/dashboard')
     router.refresh()
-  }
-
-  async function handleCadastro(e: React.FormEvent) {
-    e.preventDefault()
-    setErro('')
-    setMensagem('')
-
-    if (senha !== confirmar) {
-      setErro('As senhas não coincidem.')
-      return
-    }
-    if (senha.length < 6) {
-      setErro('A senha deve ter pelo menos 6 caracteres.')
-      return
-    }
-
-    setLoading(true)
-
-    try {
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password: senha,
-        options: { data: { nome } },
-      })
-
-      if (error) {
-        const msg = error.message || ''
-        if (msg.includes('already registered') || msg.includes('already been registered') || msg.includes('User already registered')) {
-          setErro('Este e-mail já estava cadastrado no sistema. Use a aba Entrar e clique em "Esqueci minha senha" para definir sua senha de acesso.')
-        } else {
-          setErro(msg || 'Erro ao cadastrar. Tente novamente.')
-        }
-        setLoading(false)
-        return
-      }
-
-      // Cria perfil
-      if (data.user) {
-        await fetch('/api/usuarios/perfil', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            id: data.user.id,
-            nome,
-            email,
-            papel: 'visualizador',
-            empresa_id: process.env.NEXT_PUBLIC_EMPRESA_ID,
-          }),
-        })
-      }
-
-      setMensagem('Cadastro realizado com sucesso! Você já pode entrar.')
-      setAba('entrar')
-      setNome('')
-      setSenha('')
-      setConfirmar('')
-    } catch (e: any) {
-      setErro('Erro de conexão. Tente novamente.')
-    }
-
-    setLoading(false)
   }
 
   const inputStyle: React.CSSProperties = {
@@ -144,20 +80,11 @@ export default function LoginPage() {
           border: '0.5px solid #E2E0D8', overflow: 'hidden',
         }}>
 
-          {/* Abas */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', borderBottom: '1px solid #E2E0D8' }}>
-            {(['entrar', 'cadastrar'] as const).map(a => (
-              <button key={a} onClick={() => { setAba(a); setErro(''); setMensagem('') }}
-                style={{
-                  padding: '14px', fontSize: '14px', fontWeight: '500',
-                  border: 'none', cursor: 'pointer', transition: 'all .15s',
-                  background: aba === a ? '#fff' : '#F8F7F4',
-                  color: aba === a ? '#185FA5' : '#888780',
-                  borderBottom: aba === a ? '2px solid #185FA5' : '2px solid transparent',
-                }}>
-                {a === 'entrar' ? 'Entrar' : 'Cadastrar'}
-              </button>
-            ))}
+          {/* Titulo */}
+          <div style={{ padding: '20px 28px 0', borderBottom: '1px solid #E2E0D8' }}>
+            <div style={{ paddingBottom: '14px', fontSize: '14px', fontWeight: '600', color: '#185FA5', borderBottom: '2px solid #185FA5', display: 'inline-block' }}>
+              Entrar
+            </div>
           </div>
 
           <div style={{ padding: '28px' }}>
@@ -183,9 +110,8 @@ export default function LoginPage() {
               </div>
             )}
 
-            {/* ABA ENTRAR */}
-            {aba === 'entrar' && (
-              <form onSubmit={handleLogin}>
+            {/* FORM ENTRAR */}
+            <form onSubmit={handleLogin}>
                 <div style={{ marginBottom: '16px' }}>
                   <label style={{ fontSize: '13px', fontWeight: '500', color: '#444441', display: 'block', marginBottom: '6px' }}>E-mail</label>
                   <input type="email" value={email} onChange={e => setEmail(e.target.value)}
@@ -209,40 +135,11 @@ export default function LoginPage() {
                   {loading ? 'Entrando...' : 'Entrar'}
                 </button>
               </form>
-            )}
 
-            {/* ABA CADASTRAR */}
-            {aba === 'cadastrar' && (
-              <form onSubmit={handleCadastro}>
-                <div style={{ marginBottom: '16px' }}>
-                  <label style={{ fontSize: '13px', fontWeight: '500', color: '#444441', display: 'block', marginBottom: '6px' }}>Nome completo</label>
-                  <input type="text" value={nome} onChange={e => setNome(e.target.value)}
-                    placeholder="Seu nome completo" required style={inputStyle} />
-                </div>
-                <div style={{ marginBottom: '16px' }}>
-                  <label style={{ fontSize: '13px', fontWeight: '500', color: '#444441', display: 'block', marginBottom: '6px' }}>E-mail</label>
-                  <input type="email" value={email} onChange={e => setEmail(e.target.value)}
-                    placeholder="seu@email.com.br" required style={inputStyle} />
-                </div>
-                <div style={{ marginBottom: '16px' }}>
-                  <label style={{ fontSize: '13px', fontWeight: '500', color: '#444441', display: 'block', marginBottom: '6px' }}>Senha</label>
-                  <input type="password" value={senha} onChange={e => setSenha(e.target.value)}
-                    placeholder="Mínimo 6 caracteres" required style={inputStyle} />
-                </div>
-                <div style={{ marginBottom: '20px' }}>
-                  <label style={{ fontSize: '13px', fontWeight: '500', color: '#444441', display: 'block', marginBottom: '6px' }}>Confirmar senha</label>
-                  <input type="password" value={confirmar} onChange={e => setConfirmar(e.target.value)}
-                    placeholder="Repita a senha" required style={inputStyle} />
-                </div>
-                <button type="submit" disabled={loading} style={{
-                  width: '100%', padding: '11px', fontSize: '14px', fontWeight: '500',
-                  background: loading ? '#85B7EB' : '#185FA5', color: '#fff',
-                  border: 'none', borderRadius: '8px', cursor: loading ? 'not-allowed' : 'pointer',
-                }}>
-                  {loading ? 'Cadastrando...' : 'Criar conta'}
-                </button>
-              </form>
-            )}
+            <p style={{ fontSize: '12px', color: '#888780', marginTop: '20px', marginBottom: 0, textAlign: 'center', lineHeight: '1.5' }}>
+              Não tem cadastro? Solicite ao administrador.<br/>
+              Já recebeu o convite por email? Clique em <b>Esqueci minha senha</b> acima para definir sua senha de acesso.
+            </p>
 
           </div>
         </div>

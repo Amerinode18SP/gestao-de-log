@@ -16,6 +16,7 @@ export async function GET(req: NextRequest) {
   const uf_destino   = searchParams.get('uf_destino')
   const data_inicio  = searchParams.get('data_inicio')
   const data_fim     = searchParams.get('data_fim')
+  const busca        = searchParams.get('busca')
   const page         = parseInt(searchParams.get('page') ?? '1')
   const pageSize     = parseInt(searchParams.get('page_size') ?? '50')
 
@@ -43,6 +44,12 @@ export async function GET(req: NextRequest) {
   if (uf_destino)  query = query.eq('uf_destino', uf_destino)
   if (data_inicio) query = query.gte('data_emissao', data_inicio)
   if (data_fim)    query = query.lte('data_emissao', data_fim)
+
+  if (busca) {
+    // busca por numero_cte, remetente, tomador ou chave_acesso (server-side)
+    const b = busca.trim()
+    query = query.or(`numero_cte.ilike.%${b}%,remetente_nome.ilike.%${b}%,tomador_nome.ilike.%${b}%,chave_acesso.ilike.%${b}%`)
+  }
 
   const { data, error, count } = await query
 

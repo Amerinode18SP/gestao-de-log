@@ -45,7 +45,7 @@ export default function CtePage() {
   const [busca, setBusca] = useState('')
   const [resumo, setResumo] = useState({ faturado: 0, pendente: 0, cancelado: 0, total: 0 })
 
-  const empresaId = 'f72c6ce3-89ad-4799-ac54-ad1861e2ddef'
+  const empresaId = process.env.NEXT_PUBLIC_EMPRESA_ID || '22c8f1e1-3aa7-4794-a76b-fc1d4041b0ca'
 
   const buscarCtes = useCallback(async () => {
     setLoading(true)
@@ -56,6 +56,7 @@ export default function CtePage() {
         page_size: '20',
       })
       if (filtroStatus) params.set('status', filtroStatus)
+      if (busca && busca.trim()) params.set('busca', busca.trim())
 
       const res = await fetch(`/api/cte?${params}`)
       const data = await res.json()
@@ -68,7 +69,7 @@ export default function CtePage() {
     } finally {
       setLoading(false)
     }
-  }, [page, filtroStatus, empresaId])
+  }, [page, filtroStatus, empresaId, busca])
 
   const buscarResumo = useCallback(async () => {
     try {

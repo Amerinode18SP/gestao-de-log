@@ -81,25 +81,28 @@ export async function syncCtes(
     let abortadoPorRateLimit = false
     let segundosParaTentar = 0
 
-    // Helper: chama listarCtes com retry para erro "Já existe uma requisição"
+    // Helper: chama listarCtes com retry para erros transientes do Omie:
+    //  - "Já existe uma requisição desse método sendo executada" (concorrência)
+    //  - "SOAP-ERROR: Broken response from Application Server" (glitch interno)
     const callComRetry = async (pag: number) => {
       for (let tentativa = 1; tentativa <= 4; tentativa++) {
         try {
           return await client.listarCtes(pag, 50)
         } catch (err: any) {
           const msg = err.message ?? ''
-          // Erro "Já existe uma requisição desse método sendo executada"
-          // → outra chamada concorrente; espera e tenta de novo
-          if (msg.includes('Já existe uma requisição') || msg.includes('sendo executada')) {
+          const ehConcorrencia = msg.includes('Já existe uma requisição') || msg.includes('sendo executada')
+          const ehSoapBroken   = msg.includes('SOAP-ERROR') || msg.includes('Broken response')
+          if (ehConcorrencia || ehSoapBroken) {
             const espera = 5000 * tentativa // 5s, 10s, 15s, 20s
-            console.warn(`[sync] Concorrência Omie pag ${pag} tent ${tentativa}/4 — aguarda ${espera/1000}s`)
+            const tipo = ehConcorrencia ? 'concorrência' : 'glitch SOAP'
+            console.warn(`[sync] ${tipo} Omie pag ${pag} tent ${tentativa}/4 — aguarda ${espera/1000}s`)
             await new Promise(r => setTimeout(r, espera))
             continue
           }
           throw err
         }
       }
-      throw new Error(`Omie ocupado após 4 tentativas (pagina ${pag}). Aguarde 1 min e tente de novo.`)
+      throw new Error(`Omie instável após 4 tentativas (pagina ${pag}). Aguarde 1 min e tente de novo.`)
     }
 
     do {
@@ -115,23 +118,24 @@ export async function syncCtes(
         pagina++
 
         if (pagina <= Math.min(fimLote, totalPaginas)) {
-          await new Promise(r => setTimeout(r, 500))
+          await new Promise(r => setTimeout(r, 1000))
         }
       } catch (err: any) {
         const msg = err.message ?? ''
         const m = msg.match(/(\d+)\s*segundos/)
-        // Rate limit duro do Omie → para o lote graciosamente
-        if (msg.includes('bloqueada') || msg.includes('consumo indevido') || m) {
+        // Rate limit duro do Omie (MISUSE_API_PROCESS) → para o lote graciosamente
+        if (msg.includes('bloqueada') || msg.includes('consumo indevido') ||
+            msg.includes('MISUSE_API_PROCESS') || m) {
           segundosParaTentar = m ? Number(m[1]) : 180
           abortadoPorRateLimit = true
           console.warn(`[sync] Rate limit Omie — pag ${pagina}. Aguarde ${segundosParaTentar}s.`)
           break
         }
-        // Concorrência apos retry esgotado
-        if (msg.includes('Omie ocupado')) {
+        // Concorrência/glitch após retry esgotado
+        if (msg.includes('Omie instável') || msg.includes('Omie ocupado')) {
           abortadoPorRateLimit = true
           segundosParaTentar = 60
-          console.warn(`[sync] Concorrencia persistente Omie — pag ${pagina}`)
+          console.warn(`[sync] Omie instavel — pag ${pagina}`)
           break
         }
         throw err

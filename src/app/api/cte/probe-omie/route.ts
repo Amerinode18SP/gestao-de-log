@@ -46,19 +46,17 @@ export async function GET(_req: NextRequest) {
   const dataDe = fmtBR(inicio)
   const dataAte = fmtBR(hoje)
 
-  const base = { pagina: 1, registros_por_pagina: 3, apenas_importado_api: 'N' }
+  const base = { pagina: 1, registros_por_pagina: 5, apenas_importado_api: 'N' }
   const candidates = [
-    // 1. Sem filtro de data — para ver ordenação default e primeiro item
-    { ep: '/financas/contapagar/', call: 'ListarContasPagar', p: base, label: 'sem_filtro' },
-    // 2. Tentar variações de nomes de campo para filtro de data
-    { ep: '/financas/contapagar/', call: 'ListarContasPagar', p: { ...base, data_de: dataDe, data_ate: dataAte }, label: 'data_de/ate' },
-    { ep: '/financas/contapagar/', call: 'ListarContasPagar', p: { ...base, data_inicio: dataDe, data_fim: dataAte }, label: 'data_inicio/fim' },
-    { ep: '/financas/contapagar/', call: 'ListarContasPagar', p: { ...base, dDataDe: dataDe, dDataAte: dataAte }, label: 'dDataDe/Ate' },
-    { ep: '/financas/contapagar/', call: 'ListarContasPagar', p: { ...base, filtrar_apenas_emitidas_de: dataDe, filtrar_apenas_emitidas_ate: dataAte }, label: 'filtrar_apenas_emitidas_*' },
-    { ep: '/financas/contapagar/', call: 'ListarContasPagar', p: { ...base, dDtEmissaoDe: dataDe, dDtEmissaoAte: dataAte }, label: 'dDtEmissao_de/ate' },
-    // 3. Tentar parâmetros de ordenação
-    { ep: '/financas/contapagar/', call: 'ListarContasPagar', p: { ...base, ordenar_por: 'data_emissao', ordem_descrescente: 'S' }, label: 'ordenar_emissao_desc' },
-    { ep: '/financas/contapagar/', call: 'ListarContasPagar', p: { ...base, cOrdenarPor: 'DATA_EMISSAO', cOrdemDecrescente: 'S' }, label: 'cOrdenar_DATA_EMISSAO' },
+    // Ordenar por DATA_EMISSAO + variantes de "decrescente"
+    { ep: '/financas/contapagar/', call: 'ListarContasPagar', p: { ...base, ordenar_por: 'DATA_EMISSAO' } },
+    { ep: '/financas/contapagar/', call: 'ListarContasPagar', p: { ...base, ordenar_por: 'DATA_EMISSAO', ordem_descrescente: 'S' } },
+    { ep: '/financas/contapagar/', call: 'ListarContasPagar', p: { ...base, ordenar_por: 'DATA_EMISSAO', ordem_decrescente: 'S' } },
+    { ep: '/financas/contapagar/', call: 'ListarContasPagar', p: { ...base, ordenar_por: 'DATA_EMISSAO', ordem: 'desc' } },
+    { ep: '/financas/contapagar/', call: 'ListarContasPagar', p: { ...base, ordenar_por: 'DATA_EMISSAO', descrescente: 'S' } },
+    { ep: '/financas/contapagar/', call: 'ListarContasPagar', p: { ...base, ordenar_por: 'DATA_EMISSAO', decrescente: 'S' } },
+    // Ordenar por CODIGO desc (que normalmente cresce com tempo)
+    { ep: '/financas/contapagar/', call: 'ListarContasPagar', p: { ...base, ordenar_por: 'CODIGO' } },
   ]
   const results = []
   for (const c of candidates) {

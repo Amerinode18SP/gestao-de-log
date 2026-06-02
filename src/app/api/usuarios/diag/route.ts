@@ -59,7 +59,10 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// POST: força "destravamento" — set senha + confirma email + remove ban
+// POST: RECRIA a conta no Auth com email+senha (delete + create)
+// Usado quando a conta existe mas sem identidade de email/senha
+// (caso de usuario criado via invite link que nunca completou o fluxo).
+// Mantém os dados do perfil (nome, papel, empresa) atualizando o id.
 export async function POST(req: NextRequest) {
   try {
     const { email, senha } = await req.json()
@@ -72,35 +75,72 @@ export async function POST(req: NextRequest) {
 
     const supabase = createSupabaseAdmin()
 
-    // Acha usuario
-    let user: any = null
+    // 1. Acha usuario auth atual (se existir)
+    let userAtual: any = null
     let page = 1
-    while (page <= 10 && !user) {
+    while (page <= 10 && !userAtual) {
       const { data } = await supabase.auth.admin.listUsers({ page, perPage: 200 })
-      user = data?.users?.find(u => u.email?.toLowerCase() === email.toLowerCase())
+      userAtual = data?.users?.find(u => u.email?.toLowerCase() === email.toLowerCase())
       if (!data?.users || data.users.length < 200) break
       page++
     }
-    if (!user) {
-      return NextResponse.json({ error: 'usuario nao encontrado no auth' }, { status: 404 })
+
+    // 2. Guarda perfil existente (pra preservar nome/papel/empresa)
+    let perfilOriginal: any = null
+    if (userAtual) {
+      const { data } = await supabase
+        .from('perfis_usuario')
+        .select('*')
+        .eq('id', userAtual.id)
+        .maybeSingle()
+      perfilOriginal = data
     }
 
-    // Forca senha + email_confirm + ban_duration null
-    const { data: updated, error } = await supabase.auth.admin.updateUserById(user.id, {
+    // 3. Deleta o user antigo do auth (se existir) — leva junto o perfil via FK
+    if (userAtual) {
+      // Salva perfil em variável antes de deletar (FK cascade)
+      await supabase.auth.admin.deleteUser(userAtual.id)
+    }
+
+    // 4. Cria novo user auth com email+senha+email_confirm
+    const { data: novo, error: createErr } = await supabase.auth.admin.createUser({
+      email,
       password: senha,
       email_confirm: true,
-      ban_duration: 'none',
-    } as any)
+      user_metadata: perfilOriginal ? { nome: perfilOriginal.nome } : undefined,
+    })
+    if (createErr || !novo?.user) {
+      return NextResponse.json({ error: createErr?.message || 'Falha ao criar user' }, { status: 500 })
+    }
 
-    if (error) {
-      return NextResponse.json({ error: error.message, user_id: user.id }, { status: 500 })
+    // 5. Recria perfil com novo id (preservando dados originais)
+    if (perfilOriginal) {
+      const { error: perfilErr } = await supabase.from('perfis_usuario').upsert({
+        id: novo.user.id,
+        empresa_id: perfilOriginal.empresa_id,
+        nome: perfilOriginal.nome,
+        email,
+        papel: perfilOriginal.papel,
+        ativo: true,
+      })
+      if (perfilErr) {
+        return NextResponse.json({
+          ok: false,
+          warning: 'User criado mas perfil falhou',
+          user_id: novo.user.id,
+          perfil_erro: perfilErr.message,
+        }, { status: 500 })
+      }
     }
 
     return NextResponse.json({
       ok: true,
-      user_id: user.id,
-      email: updated?.user?.email,
-      email_confirmed_at: updated?.user?.email_confirmed_at,
+      user_id: novo.user.id,
+      email: novo.user.email,
+      email_confirmed_at: novo.user.email_confirmed_at,
+      mensagem: perfilOriginal
+        ? `Conta de ${perfilOriginal.nome} recriada — senha definida.`
+        : `Conta criada — senha definida.`,
     })
   } catch (e: any) {
     return NextResponse.json({ error: e?.message || 'Erro interno' }, { status: 500 })

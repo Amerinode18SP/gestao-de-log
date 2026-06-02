@@ -80,9 +80,12 @@ export class OmieClient {
 
   // ----------------------------------------------------------
   // CT-e via Contas a Pagar (uma página).
-  // ordenar_por=DATA_EMISSAO + ordem_descrescente=S → CTes mais
-  // recentes vêm na pagina 1, garante que novidades sejam pegas
-  // mesmo com timeout do Vercel limitando paginas processadas.
+  // ordenar_por=CODIGO + ordem_descrescente=S → traz lançamentos
+  // criados mais recentemente no Omie primeiro (codigo_lancamento_omie
+  // cresce sequencialmente com a inclusao). Importante: a Amerinode
+  // tem lançamentos com data_emissao futura (provisões para 2029, 2030,
+  // etc), então ordenar por DATA_EMISSAO desc traz primeiro essas datas
+  // FUTURAS e nunca chega às CTes reais do mês passado.
   //
   // ATENCAO: 'descrescente' tem typo (R a mais) — eh assim mesmo
   // que o Omie espera. ordem_decrescente sem typo retorna 500.
@@ -95,7 +98,7 @@ export class OmieClient {
         pagina,
         registros_por_pagina: registrosPorPagina,
         apenas_importado_api: 'N',
-        ordenar_por: 'DATA_EMISSAO',
+        ordenar_por: 'CODIGO',
         ordem_descrescente: 'S',
       }
     )

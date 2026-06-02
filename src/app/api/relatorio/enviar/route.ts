@@ -52,13 +52,13 @@ export async function POST(req: NextRequest) {
       : `Relatório semanal — ${fmtBR(ini)} a ${fmtBR(hoje)}`
 
     // 3. Agrega dados do período (KPIs e ranking)
-    //    Mesma logica do dashboard: so CTes Faturado ou Recebido
-    //    (alinhado com a tela que a Ana ja conhece).
+    //    Inclui CTes Faturado e Pendente ("A vencer" no display).
+    //    Espelha o que aparece na tela de dashboard.
     const { data: ctes } = await supabase
       .from('ctes')
       .select('id, status, valor_servico, fornecedor_id, centro_custo_id, centro_custo_nome, fornecedor:fornecedores(nome), centro_custo:centros_custo(nome)')
       .eq('empresa_id', empresa_id)
-      .in('status', ['Faturado', 'Recebido'])
+      .in('status', ['Faturado', 'Pendente'])
       .gte('data_emissao', iniStr)
       .lte('data_emissao', hojeStr)
 
@@ -92,7 +92,7 @@ export async function POST(req: NextRequest) {
       .from('ctes')
       .select('valor_servico, data_emissao')
       .eq('empresa_id', empresa_id)
-      .in('status', ['Faturado', 'Recebido'])
+      .in('status', ['Faturado', 'Pendente'])
       .gte('data_emissao', inicioAno)
       .lte('data_emissao', hojeStr)
 
@@ -117,7 +117,7 @@ export async function POST(req: NextRequest) {
       .from('ctes')
       .select('valor_servico, data_emissao')
       .eq('empresa_id', empresa_id)
-      .in('status', ['Faturado', 'Recebido'])
+      .in('status', ['Faturado', 'Pendente'])
       .gte('data_emissao', inicio30dStr)
       .lte('data_emissao', hojeStr)
 

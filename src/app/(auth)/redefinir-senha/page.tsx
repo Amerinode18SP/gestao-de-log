@@ -17,23 +17,44 @@ export default function RedefinirSenhaPage() {
   const router = useRouter()
   const supabase = createSupabaseBrowser()
 
-  // Verifica se a sessão foi estabelecida pelo link (Supabase detecta o hash da URL)
+  // Verifica se a sessão foi estabelecida pelo link.
+  // O Supabase client com detectSessionInUrl:true processa o hash
+  // (#access_token=...) automaticamente e dispara onAuthStateChange.
+  // Como pode demorar alguns ms, usamos o listener + fallback de retries.
   useEffect(() => {
     let mounted = true
-    async function check() {
-      // Aguarda o cliente Supabase processar o hash da URL
-      await new Promise(r => setTimeout(r, 400))
-      const { data: { session } } = await supabase.auth.getSession()
+    let tentativa = 0
+
+    function detectouSessao(session: any) {
       if (!mounted) return
-      if (session?.user) {
-        setLinkValido(true)
-        setEmailUsuario(session.user.email ?? '')
-      } else {
-        setLinkValido(false)
-      }
+      setLinkValido(true)
+      setEmailUsuario(session?.user?.email ?? '')
     }
-    check()
-    return () => { mounted = false }
+
+    // 1. Listener: dispara quando o Supabase processa o token do hash
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (session?.user) detectouSessao(session)
+    })
+
+    // 2. Tambem tenta direto via getSession com retry curto
+    async function checar() {
+      while (mounted && tentativa < 8) {
+        const { data: { session } } = await supabase.auth.getSession()
+        if (session?.user) {
+          detectouSessao(session)
+          return
+        }
+        tentativa++
+        await new Promise(r => setTimeout(r, 300))
+      }
+      if (mounted) setLinkValido(false)
+    }
+    checar()
+
+    return () => {
+      mounted = false
+      subscription?.unsubscribe()
+    }
   }, [supabase])
 
   async function handleRedefinir(e: React.FormEvent) {

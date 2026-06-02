@@ -78,20 +78,34 @@ export async function syncCtes(
     const omieCtEList: OmieCte[] = []
     let pagina = paginaInicio
     let totalPaginas = fimLote
+    let abortadoPorRateLimit = false
+    let segundosParaTentar = 0
 
     do {
-      const resp = await client.listarCtes(pagina, 50)
-      totalPaginas = resp.nTotPaginas
+      try {
+        const resp = await client.listarCtes(pagina, 50)
+        totalPaginas = resp.nTotPaginas
 
-      if (resp.listaCte) {
-        omieCtEList.push(...resp.listaCte)
-      }
+        if (resp.listaCte) {
+          omieCtEList.push(...resp.listaCte)
+        }
 
-      console.log(`[sync] Página ${pagina}/${totalPaginas}`)
-      pagina++
+        console.log(`[sync] Página ${pagina}/${totalPaginas}`)
+        pagina++
 
-      if (pagina <= Math.min(fimLote, totalPaginas)) {
-        await new Promise(r => setTimeout(r, 200))
+        if (pagina <= Math.min(fimLote, totalPaginas)) {
+          await new Promise(r => setTimeout(r, 500))
+        }
+      } catch (err: any) {
+        const msg = err.message ?? ''
+        const m = msg.match(/(\d+)\s*segundos/)
+        if (msg.includes('bloqueada') || msg.includes('consumo indevido') || m) {
+          segundosParaTentar = m ? Number(m[1]) : 180
+          abortadoPorRateLimit = true
+          console.warn(`[sync] Rate limit da Omie — abortando lote em pag ${pagina}. Aguarde ${segundosParaTentar}s e re-sincronize.`)
+          break
+        }
+        throw err
       }
     } while (pagina <= Math.min(fimLote, totalPaginas))
 
@@ -134,9 +148,16 @@ export async function syncCtes(
       }
     }
 
-    const proximaPagina = pagina <= totalPaginas ? pagina : undefined
+    // Se abortou por rate limit, marca a pagina atual como proxima_pagina
+    // pra retomar do mesmo ponto na proxima rodada de sync.
+    const proximaPagina = abortadoPorRateLimit
+      ? pagina
+      : (pagina <= totalPaginas ? pagina : undefined)
     result.proxima_pagina = proximaPagina
     result.total_paginas = totalPaginas
+    if (abortadoPorRateLimit) {
+      (result as any).rate_limit_aguardar_segundos = segundosParaTentar
+    }
 
     if (!proximaPagina) {
       await verificarAlertas(empresaId, supabase)

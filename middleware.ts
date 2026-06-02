@@ -5,8 +5,15 @@ import type { NextRequest } from 'next/server'
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
-  // Rotas públicas
-  if (pathname.startsWith('/login') || pathname.startsWith('/api/')) {
+  // Rotas públicas (login + fluxo de recuperação/convite)
+  // /redefinir-senha e /esqueci-senha precisam estar aqui pra que o link
+  // do email do Supabase consiga abrir antes da sessao estar estabelecida.
+  if (
+    pathname.startsWith('/login') ||
+    pathname.startsWith('/esqueci-senha') ||
+    pathname.startsWith('/redefinir-senha') ||
+    pathname.startsWith('/api/')
+  ) {
     return NextResponse.next()
   }
 
@@ -36,5 +43,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico|login).*)'],
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|login|esqueci-senha|redefinir-senha).*)'],
 }

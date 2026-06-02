@@ -34,6 +34,8 @@ export default function UsuariosPage() {
   const [reenviando, setReenviando] = useState<string | null>(null)
   const [mensagem, setMensagem] = useState('')
   const [erro, setErro] = useState('')
+  const [linkConvite, setLinkConvite] = useState<{ email: string, url: string } | null>(null)
+  const [copiado, setCopiado] = useState(false)
 
   const carregar = useCallback(async () => {
     setCarregando(true)
@@ -54,6 +56,7 @@ export default function UsuariosPage() {
     setEnviando(true)
     setErro('')
     setMensagem('')
+    setLinkConvite(null)
     try {
       const res = await fetch('/api/usuarios/convidar', {
         method: 'POST',
@@ -62,7 +65,10 @@ export default function UsuariosPage() {
       })
       const data = await res.json()
       if (res.ok) {
-        setMensagem(`✅ Convite enviado para ${novoEmail}!`)
+        setMensagem(`✅ Convite criado para ${novoEmail}`)
+        if (data.action_link) {
+          setLinkConvite({ email: novoEmail, url: data.action_link })
+        }
         setNovoEmail(''); setNovoNome(''); setNovoPapel('visualizador')
         setModalAberto(false)
         carregar()
@@ -77,6 +83,7 @@ export default function UsuariosPage() {
     setReenviando(u.id)
     setErro('')
     setMensagem('')
+    setLinkConvite(null)
     try {
       const res = await fetch('/api/usuarios/convidar', {
         method: 'POST',
@@ -85,12 +92,24 @@ export default function UsuariosPage() {
       })
       const data = await res.json()
       if (res.ok) {
-        setMensagem(`✅ Convite reenviado para ${u.email}!`)
+        setMensagem(`✅ Convite recriado para ${u.email}`)
+        if (data.action_link) {
+          setLinkConvite({ email: u.email, url: data.action_link })
+        }
       } else {
         setErro(data.error || 'Erro ao reenviar convite')
       }
     } catch { setErro('Erro de conexão') }
     setReenviando(null)
+  }
+
+  async function copiarLink() {
+    if (!linkConvite) return
+    try {
+      await navigator.clipboard.writeText(linkConvite.url)
+      setCopiado(true)
+      setTimeout(() => setCopiado(false), 2500)
+    } catch {}
   }
 
   async function alterarPapel(id: string, papel: string) {
@@ -192,6 +211,38 @@ export default function UsuariosPage() {
         {mensagem && (
           <div style={{ background: '#EAF3DE', border: '1px solid #B3D48A', borderRadius: '8px', padding: '12px 16px', marginBottom: '16px', fontSize: '13px', color: '#27500A' }}>
             {mensagem}
+          </div>
+        )}
+
+        {linkConvite && (
+          <div style={{ background: '#FFF7E0', border: '1px solid #F0D080', borderRadius: '8px', padding: '16px 20px', marginBottom: '16px' }}>
+            <div style={{ fontSize: '13px', fontWeight: '600', color: '#6B4500', marginBottom: '6px' }}>
+              📧 Link de acesso para <b>{linkConvite.email}</b>
+            </div>
+            <div style={{ fontSize: '12px', color: '#7A5900', marginBottom: '10px', lineHeight: '1.5' }}>
+              O Supabase pode demorar pra mandar o email (ou cair na caixa de spam). Pra agilizar, copie esse link e mande direto pra pessoa via WhatsApp, email ou Teams. Ela só precisa clicar pra definir a senha.
+            </div>
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'stretch' }}>
+              <input
+                type="text"
+                readOnly
+                value={linkConvite.url}
+                onFocus={e => e.currentTarget.select()}
+                style={{ flex: 1, padding: '10px 12px', fontSize: '12px', fontFamily: 'monospace', border: '1px solid #D4C080', borderRadius: '6px', background: '#fff', color: '#444', outline: 'none' }}
+              />
+              <button
+                onClick={copiarLink}
+                style={{ padding: '0 16px', fontSize: '13px', fontWeight: '500', background: copiado ? '#27500A' : '#185FA5', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', whiteSpace: 'nowrap' }}
+              >
+                {copiado ? '✅ Copiado!' : '📋 Copiar'}
+              </button>
+              <button
+                onClick={() => setLinkConvite(null)}
+                style={{ padding: '0 14px', fontSize: '13px', background: 'transparent', color: '#888', border: '1px solid #D8D6D0', borderRadius: '6px', cursor: 'pointer' }}
+              >
+                Fechar
+              </button>
+            </div>
           </div>
         )}
 

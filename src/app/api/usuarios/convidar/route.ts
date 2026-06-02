@@ -62,14 +62,15 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Tenta enviar email via Supabase SMTP configurado
     if (linkConvite) {
-      // O link já foi gerado — o Supabase envia automaticamente via SMTP configurado
-      // quando usamos generateLink com type 'invite'
       console.log('Link gerado com sucesso para:', email)
-      return NextResponse.json({ 
-        success: true, 
-        message: `Convite enviado para ${email}` 
+      // Retorna o link tambem pro frontend mostrar — caso SMTP do Supabase
+      // nao esteja configurado ou o email caia no spam, admin pode copiar
+      // e mandar manualmente via WhatsApp/email.
+      return NextResponse.json({
+        success: true,
+        message: `Convite criado para ${email}`,
+        action_link: linkConvite,
       })
     }
 

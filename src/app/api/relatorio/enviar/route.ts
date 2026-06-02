@@ -61,16 +61,36 @@ export async function POST(req: NextRequest) {
       ? `Relatório mensal — ${fmtBR(ini)} a ${fmtBR(fim)}`
       : `Relatório semanal — ${fmtBR(ini)} a ${fmtBR(fim)}`
 
-    // 3. Agrega dados do período (KPIs e ranking)
-    //    Inclui CTes Faturado e Pendente ("A vencer" no display).
-    //    Espelha o que aparece na tela de dashboard.
-    const { data: ctes } = await supabase
+    // 3. Helper que pagina e usa os MESMOS filtros do /api/ctes/resumo
+    //    (que eh quem alimenta o dashboard que a Ana valida com Omie):
+    //      - chave_acesso real (nao null, nao 'omie-X')
+    //      - tudo EXCETO Cancelado
+    //    Pagina ate 20k linhas pra nunca truncar.
+    async function fetchAll<T>(queryFn: (from: number, to: number) => Promise<{ data: T[] | null }>) {
+      const PAGE = 1000
+      const acc: T[] = []
+      let from = 0
+      while (from < 20000) {
+        const { data } = await queryFn(from, from + PAGE - 1)
+        if (!data || !data.length) break
+        acc.push(...data)
+        if (data.length < PAGE) break
+        from += PAGE
+      }
+      return acc
+    }
+
+    // 4. Dados do período (KPIs e ranking)
+    const ctes = await fetchAll<any>((f, t) => supabase
       .from('ctes')
       .select('id, status, valor_servico, fornecedor_id, centro_custo_id, centro_custo_nome, fornecedor:fornecedores(nome), centro_custo:centros_custo(nome)')
       .eq('empresa_id', empresa_id)
-      .in('status', ['Faturado', 'Pendente'])
+      .not('chave_acesso', 'is', null)
+      .not('chave_acesso', 'ilike', 'omie-%')
+      .neq('status', 'Cancelado')
       .gte('data_emissao', iniStr)
       .lte('data_emissao', hojeStr)
+      .range(f, t))
 
     const totalGasto = (ctes ?? []).reduce((s, c: any) => s + (c.valor_servico ?? 0), 0)
     const qtd        = ctes?.length ?? 0
@@ -96,15 +116,18 @@ export async function POST(req: NextRequest) {
     })
     const porCentroCusto = [...centroMap.values()].sort((a, b) => b.valor - a.valor).slice(0, 10)
 
-    // 4. Comparativo ANUAL — janeiro até mês corrente do ano vigente
+    // 5. Comparativo ANUAL — janeiro até mês corrente do ano vigente
     const inicioAno = `${hoje.getFullYear()}-01-01`
-    const { data: ctesAno } = await supabase
+    const ctesAno = await fetchAll<any>((f, t) => supabase
       .from('ctes')
       .select('valor_servico, data_emissao')
       .eq('empresa_id', empresa_id)
-      .in('status', ['Faturado', 'Pendente'])
+      .not('chave_acesso', 'is', null)
+      .not('chave_acesso', 'ilike', 'omie-%')
+      .neq('status', 'Cancelado')
       .gte('data_emissao', inicioAno)
       .lte('data_emissao', hojeStr)
+      .range(f, t))
 
     const nomesMes = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez']
     const gastosAnual: { label: string; valor: number }[] = []
@@ -119,17 +142,19 @@ export async function POST(req: NextRequest) {
       ? gastosAnual.reduce((s, m) => s + m.valor, 0) / mesesAtivos
       : 0
 
-    // 5. Distribuição POR DIA DA SEMANA — últimos 30 dias
-    //    (mes atual pode estar quase vazio se hoje for dia 1 ou 2)
+    // 6. Distribuição POR DIA DA SEMANA — últimos 30 dias
     const inicio30d = new Date(hoje.getTime() - 30 * 24 * 60 * 60 * 1000)
     const inicio30dStr = inicio30d.toISOString().slice(0, 10)
-    const { data: ctesUltimos30 } = await supabase
+    const ctesUltimos30 = await fetchAll<any>((f, t) => supabase
       .from('ctes')
       .select('valor_servico, data_emissao')
       .eq('empresa_id', empresa_id)
-      .in('status', ['Faturado', 'Pendente'])
+      .not('chave_acesso', 'is', null)
+      .not('chave_acesso', 'ilike', 'omie-%')
+      .neq('status', 'Cancelado')
       .gte('data_emissao', inicio30dStr)
       .lte('data_emissao', hojeStr)
+      .range(f, t))
 
     const nomesDia = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
     const porDiaSemana: { label: string; valor: number }[] = []

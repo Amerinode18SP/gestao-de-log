@@ -153,75 +153,132 @@ function escapeHtml(s: string) {
 }
 
 // ============================================================
-// Template: Relatorio periodico (semanal/mensal)
+// Template: Relatorio periodico (semanal/mensal) — visual com gráficos
 // ============================================================
 interface RelatorioParams {
-  titulo: string
-  periodoLabel: string      // "Semana de 26/05 a 01/06" etc
-  kpis: { label: string; valor: string }[]
-  topFornecedores: { nome: string; valor: number; ctes: number }[]
-  porModal?: { modal: string; valor: number }[]
-  porEstado?: { uf: string; valor: number; ctes: number }[]
+  periodoLabel: string                                             // "26/05 a 01/06"
+  totalGasto: number
+  mediaMensal: number
   totalCtes: number
-  appUrl: string
+  ticketMedio: number
+  gastosPorMes: { label: string; valor: number }[]                 // últimos 6 meses
+  porTransportadora: { nome: string; valor: number; ctes: number }[]
+  porCentroCusto: { nome: string; valor: number }[]
 }
 
-export function templateRelatorio(p: RelatorioParams) {
-  const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
-  const linha = (label: string, valor: string, idx: number) => `
-    <tr style="background:${idx % 2 ? '#FAFAF8' : '#fff'}">
-      <td style="padding:10px 14px;font-size:13px;color:#444441">${escapeHtml(label)}</td>
-      <td style="padding:10px 14px;font-size:13px;color:#1A1916;text-align:right;font-weight:500">${escapeHtml(valor)}</td>
-    </tr>`
+const fmtR = (v: number) => 'R$ ' + Number(v||0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+const fmtN = (v: number) => Number(v||0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
-  const fornHtml = p.topFornecedores.slice(0, 10).map((f, i) => `
-    <tr style="background:${i % 2 ? '#FAFAF8' : '#fff'}">
-      <td style="padding:10px 14px;font-size:12px;color:#444441">${escapeHtml(f.nome)}</td>
-      <td style="padding:10px 14px;font-size:12px;color:#666;text-align:right">${f.ctes}</td>
-      <td style="padding:10px 14px;font-size:12px;color:#1A1916;text-align:right;font-weight:500">${fmt(f.valor)}</td>
-    </tr>`).join('')
+// Card de KPI em estilo de tabela (compatível com qualquer email client)
+function kpiCard(label: string, valor: string, cor: string) {
+  return `
+    <td style="padding:0 6px 12px 0;vertical-align:top" width="25%">
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:#fff;border:1px solid #E2E0D8;border-radius:8px">
+        <tr><td style="padding:12px 14px">
+          <div style="font-size:11px;color:#666;margin-bottom:4px">${escapeHtml(label)}</div>
+          <div style="font-size:18px;font-weight:700;color:${cor}">${escapeHtml(valor)}</div>
+        </td></tr>
+      </table>
+    </td>`
+}
+
+// Barra vertical (gráfico de meses)
+function colunaMes(label: string, valor: number, max: number) {
+  const alturaPx = max > 0 ? Math.round((valor / max) * 140) : 0
+  return `
+    <td valign="bottom" style="padding:0 4px;text-align:center" width="${Math.floor(100 / 6)}%">
+      <div style="font-size:9.5px;color:#666;margin-bottom:4px;white-space:nowrap">${fmtN(valor)}</div>
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="height:140px"><tr>
+        <td valign="bottom" style="text-align:center">
+          <div style="background:#185FA5;width:34px;height:${alturaPx}px;margin:0 auto;border-radius:4px 4px 0 0"></div>
+        </td>
+      </tr></table>
+      <div style="font-size:10px;color:#888;margin-top:6px">${escapeHtml(label)}</div>
+    </td>`
+}
+
+// Linha de ranking com barra horizontal proporcional
+function rankingLinha(nome: string, valor: number, total: number, idx: number, cor: string) {
+  const pct = total > 0 ? Math.round((valor / total) * 1000) / 10 : 0
+  const barraW = total > 0 ? Math.max(2, Math.round((valor / total) * 100)) : 0
+  return `
+    <tr><td style="padding:9px 0 4px;font-size:11px;color:#1A1916;font-weight:500">${escapeHtml(nome.length > 40 ? nome.slice(0, 38) + '…' : nome)}</td>
+        <td style="padding:9px 0 4px;font-size:11px;color:#666;text-align:right;white-space:nowrap">${pct.toString().replace('.', ',')}% — ${fmtR(valor)}</td></tr>
+    <tr><td colspan="2" style="padding:0 0 6px">
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:#F0EEE8;border-radius:2px"><tr>
+        <td style="width:${barraW}%;background:${cor};height:6px;border-radius:2px;line-height:0;font-size:0">&nbsp;</td>
+        <td style="width:${100-barraW}%;line-height:0;font-size:0">&nbsp;</td>
+      </tr></table>
+    </td></tr>`
+}
+
+const CORES_RANKING = ['#2E7D32', '#558B2F', '#9E9D24', '#F57F17', '#E65100', '#C62828', '#AD1457', '#6A1B9A']
+
+export function templateRelatorio(p: RelatorioParams) {
+  const maxMes = Math.max(...p.gastosPorMes.map(m => m.valor), 1)
+  const totalT  = p.porTransportadora.reduce((s, x) => s + x.valor, 0)
+  const totalC  = p.porCentroCusto.reduce((s, x) => s + x.valor, 0)
 
   return `<!DOCTYPE html>
 <html lang="pt-BR"><head><meta charset="UTF-8"></head>
 <body style="margin:0;padding:0;background:#F5F4F0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;color:#1A1916">
   <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:#F5F4F0;padding:32px 16px">
     <tr><td align="center">
-      <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="max-width:640px;background:#fff;border-radius:12px;overflow:hidden;border:1px solid #E2E0D8">
-        <tr><td style="background:#185FA5;padding:24px 32px">
-          <div style="color:#fff;font-size:13px;opacity:.85">📊 ${escapeHtml(p.periodoLabel)}</div>
-          <div style="color:#fff;font-size:20px;font-weight:600;margin-top:4px">${escapeHtml(p.titulo)}</div>
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="max-width:680px;background:#fff;border-radius:12px;overflow:hidden;border:1px solid #E2E0D8">
+
+        <!-- Header -->
+        <tr><td style="background:#185FA5;padding:22px 28px">
+          <div style="color:#fff;font-size:12px;opacity:.85">📊 Relatório · ${escapeHtml(p.periodoLabel)}</div>
+          <div style="color:#fff;font-size:18px;font-weight:600;margin-top:4px">Gestão de Log — Amerinode</div>
         </td></tr>
 
-        <tr><td style="padding:24px 32px 8px">
-          <h2 style="font-size:14px;font-weight:600;color:#185FA5;margin:0 0 12px;text-transform:uppercase;letter-spacing:.5px">Resumo</h2>
-          <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
-            ${p.kpis.map((k, i) => linha(k.label, k.valor, i)).join('')}
-          </table>
+        <!-- KPIs em 4 cards -->
+        <tr><td style="padding:20px 22px 8px">
+          <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%"><tr>
+            ${kpiCard('Total gasto',  fmtR(p.totalGasto),  '#2E7D32')}
+            ${kpiCard('Média mensal', fmtR(p.mediaMensal), '#185FA5')}
+            ${kpiCard('CT-e emitidas', String(p.totalCtes), '#1A1916')}
+            ${kpiCard('Ticket médio', fmtR(p.ticketMedio), '#E65100')}
+          </tr></table>
         </td></tr>
 
-        ${p.topFornecedores.length ? `
-        <tr><td style="padding:24px 32px 8px">
-          <h2 style="font-size:14px;font-weight:600;color:#185FA5;margin:0 0 12px;text-transform:uppercase;letter-spacing:.5px">Top Fornecedores</h2>
-          <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
-            <thead><tr style="background:#185FA5;color:#fff">
-              <th style="padding:9px 14px;font-size:11px;text-align:left;font-weight:500">Fornecedor</th>
-              <th style="padding:9px 14px;font-size:11px;text-align:right;font-weight:500">CT-e</th>
-              <th style="padding:9px 14px;font-size:11px;text-align:right;font-weight:500">Valor</th>
-            </tr></thead>
-            <tbody>${fornHtml}</tbody>
-          </table>
+        <!-- Gráfico de barras: Gastos por mês -->
+        ${p.gastosPorMes.length ? `
+        <tr><td style="padding:8px 28px 18px">
+          <div style="background:#FAFAF8;padding:18px;border:1px solid #E8E6E0;border-radius:8px">
+            <div style="font-size:13px;font-weight:600;color:#1A1916;margin-bottom:14px">Gastos por mês</div>
+            <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%"><tr>
+              ${p.gastosPorMes.map(m => colunaMes(m.label, m.valor, maxMes)).join('')}
+            </tr></table>
+          </div>
         </td></tr>` : ''}
 
-        <tr><td style="padding:24px 32px;text-align:center">
-          <a href="${p.appUrl}/dashboard" style="display:inline-block;background:#185FA5;color:#fff;text-decoration:none;padding:11px 24px;border-radius:8px;font-size:13px;font-weight:500">
-            Ver dashboard completo
-          </a>
-        </td></tr>
+        <!-- Por transportadora -->
+        ${p.porTransportadora.length ? `
+        <tr><td style="padding:8px 28px 18px">
+          <div style="background:#fff;padding:18px;border:1px solid #E8E6E0;border-radius:8px">
+            <div style="font-size:13px;font-weight:600;color:#1A1916;margin-bottom:12px">Por transportadora</div>
+            <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+              ${p.porTransportadora.slice(0,8).map((t, i) => rankingLinha(t.nome, t.valor, totalT, i, CORES_RANKING[i % CORES_RANKING.length])).join('')}
+            </table>
+          </div>
+        </td></tr>` : ''}
 
-        <tr><td style="padding:16px 32px;background:#FAFAF8;border-top:1px solid #E8E6E0">
+        <!-- Por centro de custo -->
+        ${p.porCentroCusto.length ? `
+        <tr><td style="padding:8px 28px 22px">
+          <div style="background:#fff;padding:18px;border:1px solid #E8E6E0;border-radius:8px">
+            <div style="font-size:13px;font-weight:600;color:#1A1916;margin-bottom:12px">Por centro de custo</div>
+            <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+              ${p.porCentroCusto.slice(0,8).map((c, i) => rankingLinha(c.nome, c.valor, totalC, i, CORES_RANKING[i % CORES_RANKING.length])).join('')}
+            </table>
+          </div>
+        </td></tr>` : ''}
+
+        <!-- Footer -->
+        <tr><td style="padding:16px 28px;background:#FAFAF8;border-top:1px solid #E8E6E0">
           <p style="font-size:11px;color:#888780;margin:0;line-height:1.5">
-            Você está recebendo este email porque está na lista de destinatários de relatórios do <b>Gestão de Log</b>.
-            Para deixar de receber, peça ao administrador para remover seu email em Configurações.
+            Relatório automático do sistema <b>Gestão de Log</b> da Amerinode. Os números cobrem o período citado no topo, considerando CT-e com status Faturado ou Recebido. Para alterar a lista de destinatários ou a frequência, peça ao administrador.
           </p>
         </td></tr>
       </table>

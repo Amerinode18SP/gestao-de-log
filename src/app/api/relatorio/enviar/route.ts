@@ -51,21 +51,20 @@ export async function POST(req: NextRequest) {
       ? `Relatório mensal — ${fmtBR(ini)} a ${fmtBR(hoje)}`
       : `Relatório semanal — ${fmtBR(ini)} a ${fmtBR(hoje)}`
 
-    // 3. Agrega dados (mesma logica do /api/cte/dashboard mas focada em email)
+    // 3. Agrega dados do período (KPIs e ranking)
     const { data: ctes } = await supabase
       .from('ctes')
-      .select('id, status, valor_servico, peso_taxado, modal, fornecedor_id, uf_destino, fornecedor:fornecedores(nome)')
+      .select('id, status, valor_servico, fornecedor_id, centro_custo_id, centro_custo_nome, fornecedor:fornecedores(nome), centro_custo:centros_custo(nome)')
       .eq('empresa_id', empresa_id)
       .in('status', ['Faturado', 'Recebido'])
       .gte('data_emissao', iniStr)
       .lte('data_emissao', hojeStr)
 
-    const total = (ctes ?? []).reduce((s, c: any) => s + (c.valor_servico ?? 0), 0)
-    const peso  = (ctes ?? []).reduce((s, c: any) => s + (c.peso_taxado ?? 0), 0)
-    const qtd   = ctes?.length ?? 0
-    const ticket = qtd > 0 ? total / qtd : 0
+    const totalGasto = (ctes ?? []).reduce((s, c: any) => s + (c.valor_servico ?? 0), 0)
+    const qtd        = ctes?.length ?? 0
+    const ticketMedio = qtd > 0 ? totalGasto / qtd : 0
 
-    // Top fornecedores
+    // Top transportadoras
     const fornMap = new Map<string, { nome: string; valor: number; ctes: number }>()
     ;(ctes ?? []).forEach((c: any) => {
       const id = c.fornecedor_id
@@ -74,29 +73,59 @@ export async function POST(req: NextRequest) {
       const atual = fornMap.get(id) ?? { nome, valor: 0, ctes: 0 }
       fornMap.set(id, { nome, valor: atual.valor + (c.valor_servico ?? 0), ctes: atual.ctes + 1 })
     })
-    const topFornecedores = [...fornMap.values()].sort((a, b) => b.valor - a.valor).slice(0, 10)
+    const porTransportadora = [...fornMap.values()].sort((a, b) => b.valor - a.valor).slice(0, 10)
 
-    // 4. Renderiza template
+    // Top centros de custo
+    const centroMap = new Map<string, { nome: string; valor: number }>()
+    ;(ctes ?? []).forEach((c: any) => {
+      const nome = c.centro_custo?.nome ?? c.centro_custo_nome ?? 'Sem centro'
+      const atual = centroMap.get(nome) ?? { nome, valor: 0 }
+      centroMap.set(nome, { nome, valor: atual.valor + (c.valor_servico ?? 0) })
+    })
+    const porCentroCusto = [...centroMap.values()].sort((a, b) => b.valor - a.valor).slice(0, 10)
+
+    // 4. Comparativo dos últimos 6 meses (ano-mês x total)
+    const inicio6m = new Date(hoje.getFullYear(), hoje.getMonth() - 5, 1)
+    const inicio6mStr = inicio6m.toISOString().slice(0, 10)
+    const { data: ctesUltimos6m } = await supabase
+      .from('ctes')
+      .select('valor_servico, data_emissao')
+      .eq('empresa_id', empresa_id)
+      .in('status', ['Faturado', 'Recebido'])
+      .gte('data_emissao', inicio6mStr)
+      .lte('data_emissao', hojeStr)
+
+    const nomesMes = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez']
+    const gastosPorMes: { label: string; valor: number }[] = []
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(hoje.getFullYear(), hoje.getMonth() - i, 1)
+      const ano = d.getFullYear(), mes = d.getMonth()
+      const chave = `${ano}-${String(mes + 1).padStart(2, '0')}`
+      const total = (ctesUltimos6m ?? []).filter((r: any) => String(r.data_emissao).slice(0, 7) === chave).reduce((s, r: any) => s + (r.valor_servico ?? 0), 0)
+      gastosPorMes.push({ label: `${nomesMes[mes]}/${String(ano).slice(2)}`, valor: total })
+    }
+    const mediaMensal = gastosPorMes.length > 0
+      ? gastosPorMes.reduce((s, m) => s + m.valor, 0) / gastosPorMes.filter(m => m.valor > 0).length || 0
+      : 0
+
+    // 5. Renderiza template visual
     const html = templateRelatorio({
-      titulo: 'Gestão de Log — Resumo',
       periodoLabel,
-      kpis: [
-        { label: 'Valor total faturado',  valor: total.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) },
-        { label: 'CT-e emitidos',         valor: String(qtd) },
-        { label: 'Ticket médio',          valor: ticket.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) },
-        { label: 'Peso total (kg)',       valor: peso.toLocaleString('pt-BR', { maximumFractionDigits: 0 }) },
-      ],
-      topFornecedores,
+      totalGasto,
+      mediaMensal,
       totalCtes: qtd,
-      appUrl: APP_URL,
+      ticketMedio,
+      gastosPorMes,
+      porTransportadora,
+      porCentroCusto,
     })
 
-    // 5. Envia para todos os emails (uma chamada Resend por destinatario)
+    // 6. Envia para todos os emails (uma chamada Resend por destinatario)
     const resultados: any[] = []
     for (const to of emails) {
       const r = await enviarEmail({
         to,
-        subject: `${periodoLabel} — ${total.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}`,
+        subject: `${periodoLabel} — ${totalGasto.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}`,
         html,
       })
       resultados.push({ to, ...r })
@@ -113,7 +142,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       ok: true,
       periodo: { inicio: iniStr, fim: hojeStr, freq },
-      total_kpi: total,
+      total_kpi: totalGasto,
       destinatarios: resultados,
     })
   } catch (e: any) {

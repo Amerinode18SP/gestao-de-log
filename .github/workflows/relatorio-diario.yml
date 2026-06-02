@@ -1,0 +1,26 @@
+name: Relatorio Diario por Email
+
+# Roda a cada hora durante horario comercial BRT (08-20).
+# A rota /api/cron/relatorio verifica internamente se hoje
+# bate com o dia configurado por cada empresa.
+# Cron sintaxe em UTC: BRT = UTC - 3h
+on:
+  schedule:
+    # Roda a cada hora cheia entre 11:00 UTC e 23:00 UTC
+    # (= 08:00 a 20:00 horario de Brasilia)
+    - cron: '0 11-23 * * *'
+  workflow_dispatch:
+
+jobs:
+  enviar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Disparar verificacao
+        run: |
+          echo "Iniciando verificacao - $(date -u)"
+          RESPONSE=$(curl -s -X GET \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            --max-time 60 \
+            "https://gestao-de-log.vercel.app/api/cron/relatorio")
+          echo "Resposta: $RESPONSE"

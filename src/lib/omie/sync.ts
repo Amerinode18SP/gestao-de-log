@@ -81,9 +81,30 @@ export async function syncCtes(
     let abortadoPorRateLimit = false
     let segundosParaTentar = 0
 
+    // Helper: chama listarCtes com retry para erro "Já existe uma requisição"
+    const callComRetry = async (pag: number) => {
+      for (let tentativa = 1; tentativa <= 4; tentativa++) {
+        try {
+          return await client.listarCtes(pag, 50)
+        } catch (err: any) {
+          const msg = err.message ?? ''
+          // Erro "Já existe uma requisição desse método sendo executada"
+          // → outra chamada concorrente; espera e tenta de novo
+          if (msg.includes('Já existe uma requisição') || msg.includes('sendo executada')) {
+            const espera = 5000 * tentativa // 5s, 10s, 15s, 20s
+            console.warn(`[sync] Concorrência Omie pag ${pag} tent ${tentativa}/4 — aguarda ${espera/1000}s`)
+            await new Promise(r => setTimeout(r, espera))
+            continue
+          }
+          throw err
+        }
+      }
+      throw new Error(`Omie ocupado após 4 tentativas (pagina ${pag}). Aguarde 1 min e tente de novo.`)
+    }
+
     do {
       try {
-        const resp = await client.listarCtes(pagina, 50)
+        const resp = await callComRetry(pagina)
         totalPaginas = resp.nTotPaginas
 
         if (resp.listaCte) {
@@ -99,10 +120,18 @@ export async function syncCtes(
       } catch (err: any) {
         const msg = err.message ?? ''
         const m = msg.match(/(\d+)\s*segundos/)
+        // Rate limit duro do Omie → para o lote graciosamente
         if (msg.includes('bloqueada') || msg.includes('consumo indevido') || m) {
           segundosParaTentar = m ? Number(m[1]) : 180
           abortadoPorRateLimit = true
-          console.warn(`[sync] Rate limit da Omie — abortando lote em pag ${pagina}. Aguarde ${segundosParaTentar}s e re-sincronize.`)
+          console.warn(`[sync] Rate limit Omie — pag ${pagina}. Aguarde ${segundosParaTentar}s.`)
+          break
+        }
+        // Concorrência apos retry esgotado
+        if (msg.includes('Omie ocupado')) {
+          abortadoPorRateLimit = true
+          segundosParaTentar = 60
+          console.warn(`[sync] Concorrencia persistente Omie — pag ${pagina}`)
           break
         }
         throw err

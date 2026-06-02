@@ -17,44 +17,55 @@ export default function RedefinirSenhaPage() {
   const router = useRouter()
   const supabase = createSupabaseBrowser()
 
-  // Verifica se a sessão foi estabelecida pelo link.
-  // O Supabase client com detectSessionInUrl:true processa o hash
-  // (#access_token=...) automaticamente e dispara onAuthStateChange.
-  // Como pode demorar alguns ms, usamos o listener + fallback de retries.
+  // O cliente @supabase/ssr (createBrowserClient) usa cookies e NAO
+  // processa #access_token=... do hash automaticamente.
+  // Solucao: ler o hash, extrair tokens, chamar setSession manualmente.
   useEffect(() => {
     let mounted = true
-    let tentativa = 0
+    async function processarHash() {
+      try {
+        // 1. Tenta hash da URL primeiro (#access_token=...&refresh_token=...)
+        const hash = window.location.hash.replace(/^#/, '')
+        const params = new URLSearchParams(hash)
+        const access_token = params.get('access_token')
+        const refresh_token = params.get('refresh_token')
+        const erroHash = params.get('error') || params.get('error_code')
 
-    function detectouSessao(session: any) {
-      if (!mounted) return
-      setLinkValido(true)
-      setEmailUsuario(session?.user?.email ?? '')
-    }
-
-    // 1. Listener: dispara quando o Supabase processa o token do hash
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (session?.user) detectouSessao(session)
-    })
-
-    // 2. Tambem tenta direto via getSession com retry curto
-    async function checar() {
-      while (mounted && tentativa < 8) {
-        const { data: { session } } = await supabase.auth.getSession()
-        if (session?.user) {
-          detectouSessao(session)
+        if (erroHash) {
+          if (mounted) setLinkValido(false)
           return
         }
-        tentativa++
-        await new Promise(r => setTimeout(r, 300))
-      }
-      if (mounted) setLinkValido(false)
-    }
-    checar()
 
-    return () => {
-      mounted = false
-      subscription?.unsubscribe()
+        if (access_token && refresh_token) {
+          const { data, error } = await supabase.auth.setSession({ access_token, refresh_token })
+          if (!mounted) return
+          if (error || !data?.user) {
+            setLinkValido(false)
+            return
+          }
+          setLinkValido(true)
+          setEmailUsuario(data.user.email ?? '')
+          // Limpa o hash da URL (estetico)
+          window.history.replaceState({}, '', window.location.pathname)
+          return
+        }
+
+        // 2. Sem tokens no hash → verifica se ja tem sessao (cookies)
+        const { data: { session } } = await supabase.auth.getSession()
+        if (!mounted) return
+        if (session?.user) {
+          setLinkValido(true)
+          setEmailUsuario(session.user.email ?? '')
+        } else {
+          setLinkValido(false)
+        }
+      } catch (e) {
+        console.error('processarHash', e)
+        if (mounted) setLinkValido(false)
+      }
     }
+    processarHash()
+    return () => { mounted = false }
   }, [supabase])
 
   async function handleRedefinir(e: React.FormEvent) {

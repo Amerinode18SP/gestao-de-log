@@ -15,6 +15,16 @@ function senhaAleatoria() {
   return s
 }
 
+// Codigo curto pra URL do convite (URL-safe, alta entropia ~155 bits).
+function codigoConvite() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789'
+  let s = ''
+  for (let i = 0; i < 26; i++) {
+    s += chars[Math.floor(Math.random() * chars.length)]
+  }
+  return s
+}
+
 export async function POST(request: NextRequest) {
   try {
     const supabase = createSupabaseAdmin()
@@ -71,19 +81,31 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: upsertError.message }, { status: 500 })
     }
 
-    // 4. Gera link de recovery — usuário clica e cai na tela de definir senha
-    const { data: linkData, error: linkErr } = await supabase.auth.admin.generateLink({
-      type: 'recovery',
-      email,
-      options: { redirectTo: `${APP_URL}/redefinir-senha` },
-    })
-    if (linkErr || !linkData?.properties?.action_link) {
-      console.error('[convidar] generateLink:', linkErr)
-      return NextResponse.json({ error: linkErr?.message || 'Falha ao gerar link' }, { status: 500 })
-    }
-    const linkAcesso = linkData.properties.action_link
+    // 4. Cria convite na tabela 'convites' com codigo proprio
+    //    (camada intermediaria — protege contra Safe Links de email
+    //     pre-clicarem o token Supabase). Marca convites antigos
+    //     desse email como invalidados pra evitar conflitos.
+    await supabase
+      .from('convites')
+      .update({ invalidado_em: new Date().toISOString() })
+      .eq('email', email)
+      .is('usado_em', null)
+      .is('invalidado_em', null)
 
-    // 5. Envia email via Resend
+    const codigo = codigoConvite()
+    const { error: conviteErr } = await supabase.from('convites').insert({
+      codigo, email, nome, papel,
+      empresa_id: empresaId,
+      user_id: usuarioId,
+    })
+    if (conviteErr) {
+      console.error('[convidar] insert convite:', conviteErr)
+      return NextResponse.json({ error: conviteErr.message }, { status: 500 })
+    }
+
+    const linkAcesso = `${APP_URL}/aceitar-convite?codigo=${codigo}`
+
+    // 5. Envia email via Resend (com link do nosso dominio, nao do Supabase)
     const envio = await enviarEmail({
       to: email,
       subject: `Bem-vindo ao Gestão de Log, ${nome.split(' ')[0]}!`,

@@ -12,6 +12,7 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith('/login') ||
     pathname.startsWith('/esqueci-senha') ||
     pathname.startsWith('/redefinir-senha') ||
+    pathname.startsWith('/aceitar-convite') ||
     pathname.startsWith('/api/')
   ) {
     return NextResponse.next()
@@ -43,5 +44,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico|login|esqueci-senha|redefinir-senha).*)'],
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|login|esqueci-senha|redefinir-senha|aceitar-convite).*)'],
 }

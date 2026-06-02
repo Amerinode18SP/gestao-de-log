@@ -52,13 +52,13 @@ export async function POST(req: NextRequest) {
       : `Relatório semanal — ${fmtBR(ini)} a ${fmtBR(hoje)}`
 
     // 3. Agrega dados do período (KPIs e ranking)
-    //    Considera todos os status EXCETO Cancelado (= todo gasto real,
-    //    incluindo pendente/a vencer/faturado/recebido)
+    //    Mesma logica do dashboard: so CTes Faturado ou Recebido
+    //    (alinhado com a tela que a Ana ja conhece).
     const { data: ctes } = await supabase
       .from('ctes')
       .select('id, status, valor_servico, fornecedor_id, centro_custo_id, centro_custo_nome, fornecedor:fornecedores(nome), centro_custo:centros_custo(nome)')
       .eq('empresa_id', empresa_id)
-      .neq('status', 'Cancelado')
+      .in('status', ['Faturado', 'Recebido'])
       .gte('data_emissao', iniStr)
       .lte('data_emissao', hojeStr)
 
@@ -92,7 +92,7 @@ export async function POST(req: NextRequest) {
       .from('ctes')
       .select('valor_servico, data_emissao')
       .eq('empresa_id', empresa_id)
-      .neq('status', 'Cancelado')
+      .in('status', ['Faturado', 'Recebido'])
       .gte('data_emissao', inicioAno)
       .lte('data_emissao', hojeStr)
 
@@ -117,7 +117,7 @@ export async function POST(req: NextRequest) {
       .from('ctes')
       .select('valor_servico, data_emissao')
       .eq('empresa_id', empresa_id)
-      .neq('status', 'Cancelado')
+      .in('status', ['Faturado', 'Recebido'])
       .gte('data_emissao', inicio30dStr)
       .lte('data_emissao', hojeStr)
 

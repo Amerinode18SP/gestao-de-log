@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { createSupabaseBrowser } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import PasswordInput from '@/components/PasswordInput'
 
 export default function RedefinirSenhaPage() {
   const [senha, setSenha] = useState('')
@@ -155,15 +156,11 @@ export default function RedefinirSenhaPage() {
               )}
               <div style={{ marginBottom: '16px' }}>
                 <label style={{ fontSize: '13px', fontWeight: '500', color: '#444441', display: 'block', marginBottom: '6px' }}>Senha</label>
-                <input type="password" value={senha} onChange={e => setSenha(e.target.value)}
-                  placeholder="Mínimo 6 caracteres" required autoFocus
-                  style={inputStyle} autoComplete="new-password" />
+                <PasswordInput value={senha} onChange={setSenha} placeholder="Mínimo 6 caracteres" required autoFocus autoComplete="new-password" />
               </div>
               <div style={{ marginBottom: '20px' }}>
                 <label style={{ fontSize: '13px', fontWeight: '500', color: '#444441', display: 'block', marginBottom: '6px' }}>Confirmar senha</label>
-                <input type="password" value={confirmar} onChange={e => setConfirmar(e.target.value)}
-                  placeholder="Repita a senha" required
-                  style={inputStyle} autoComplete="new-password" />
+                <PasswordInput value={confirmar} onChange={setConfirmar} placeholder="Repita a senha" required autoComplete="new-password" />
               </div>
               <button type="submit" disabled={loading}
                 style={{

@@ -15,7 +15,14 @@ export async function POST(req: NextRequest) {
     }
 
     const supabase = createSupabaseAdmin()
-    const { error } = await supabase.auth.admin.updateUserById(id, { password: senha })
+    // Define senha E marca email como confirmado.
+    // Sem email_confirm:true, usuario que foi so convidado (nunca clicou
+    // no link de email) nao consegue logar — Supabase rejeita com
+    // 'Invalid credentials' (mensagem mascarada de 'Email not confirmed').
+    const { error } = await supabase.auth.admin.updateUserById(id, {
+      password: senha,
+      email_confirm: true,
+    })
 
     if (error) {
       console.error('[POST usuarios/senha]', error.message)

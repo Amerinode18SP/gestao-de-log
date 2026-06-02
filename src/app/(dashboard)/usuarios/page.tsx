@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
+import PasswordInput from '@/components/PasswordInput'
 
 const EMPRESA_ID = process.env.NEXT_PUBLIC_EMPRESA_ID || '22c8f1e1-3aa7-4794-a76b-fc1d4041b0ca'
 
@@ -409,8 +410,9 @@ export default function UsuariosPage() {
             <p style={{ fontSize: '12px', color: '#666', marginBottom: '16px', lineHeight: '1.5' }}>
               Você está definindo a senha para <b>{modalSenha.nome}</b> ({modalSenha.email}). Use só em emergência (a pessoa não consegue receber o link de redefinição). Avise a senha pessoalmente — ela pode trocar depois em Alterar senha.
             </p>
-            <input type="password" value={novaSenha} onChange={e => setNovaSenha(e.target.value)} placeholder="Mínimo 6 caracteres" autoFocus
-              style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #D8D6D0', fontSize: '13px', outline: 'none', boxSizing: 'border-box', marginBottom: '20px' }} />
+            <div style={{ marginBottom: '20px' }}>
+              <PasswordInput value={novaSenha} onChange={setNovaSenha} placeholder="Mínimo 6 caracteres" autoFocus autoComplete="new-password" />
+            </div>
             <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
               <button onClick={() => { setModalSenha(null); setNovaSenha('') }}
                 style={{ padding: '9px 16px', fontSize: '13px', border: '1px solid #D8D6D0', borderRadius: '8px', background: '#fff', cursor: 'pointer' }}>Cancelar</button>

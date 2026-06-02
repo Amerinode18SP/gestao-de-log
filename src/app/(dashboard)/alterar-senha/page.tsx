@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createSupabaseBrowser } from '@/lib/supabase/client'
 import { useAuth } from '@/hooks/useAuth'
+import PasswordInput from '@/components/PasswordInput'
 
 export default function AlterarSenhaPage() {
   const router = useRouter()
@@ -110,18 +111,15 @@ export default function AlterarSenhaPage() {
           <form onSubmit={salvar}>
             <div style={{ marginBottom: '16px' }}>
               <label style={{ fontSize: '13px', fontWeight: '500', color: '#444441', display: 'block', marginBottom: '6px' }}>Senha atual</label>
-              <input type="password" value={senhaAtual} onChange={e => setSenhaAtual(e.target.value)}
-                placeholder="Sua senha atual" required style={inputStyle} autoComplete="current-password" />
+              <PasswordInput value={senhaAtual} onChange={setSenhaAtual} placeholder="Sua senha atual" required autoComplete="current-password" />
             </div>
             <div style={{ marginBottom: '16px' }}>
               <label style={{ fontSize: '13px', fontWeight: '500', color: '#444441', display: 'block', marginBottom: '6px' }}>Nova senha</label>
-              <input type="password" value={novaSenha} onChange={e => setNovaSenha(e.target.value)}
-                placeholder="Mínimo 6 caracteres" required style={inputStyle} autoComplete="new-password" />
+              <PasswordInput value={novaSenha} onChange={setNovaSenha} placeholder="Mínimo 6 caracteres" required autoComplete="new-password" />
             </div>
             <div style={{ marginBottom: '20px' }}>
               <label style={{ fontSize: '13px', fontWeight: '500', color: '#444441', display: 'block', marginBottom: '6px' }}>Confirmar nova senha</label>
-              <input type="password" value={confirmar} onChange={e => setConfirmar(e.target.value)}
-                placeholder="Repita a nova senha" required style={inputStyle} autoComplete="new-password" />
+              <PasswordInput value={confirmar} onChange={setConfirmar} placeholder="Repita a nova senha" required autoComplete="new-password" />
             </div>
             <button type="submit" disabled={loading} style={{
               width: '100%', padding: '11px', fontSize: '14px', fontWeight: '500',

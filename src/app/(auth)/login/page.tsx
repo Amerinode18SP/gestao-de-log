@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { createSupabaseBrowser } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import PasswordInput from '@/components/PasswordInput'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
@@ -119,8 +120,7 @@ export default function LoginPage() {
                 </div>
                 <div style={{ marginBottom: '8px' }}>
                   <label style={{ fontSize: '13px', fontWeight: '500', color: '#444441', display: 'block', marginBottom: '6px' }}>Senha</label>
-                  <input type="password" value={senha} onChange={e => setSenha(e.target.value)}
-                    placeholder="••••••••" required style={inputStyle} />
+                  <PasswordInput value={senha} onChange={setSenha} placeholder="••••••••" required autoComplete="current-password" />
                 </div>
                 <div style={{ textAlign: 'right', marginBottom: '20px' }}>
                   <Link href="/esqueci-senha" style={{ fontSize: '12px', color: '#185FA5', textDecoration: 'none' }}>

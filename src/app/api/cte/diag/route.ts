@@ -9,10 +9,27 @@ export const dynamic = 'force-dynamic'
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const empresa_id = searchParams.get('empresa_id')
-  if (!empresa_id) {
-    return NextResponse.json({ error: 'empresa_id obrigatorio' }, { status: 400 })
-  }
   const supabase = createSupabaseAdmin()
+
+  // 0. Pre-diag: contagem total sem filtro de empresa e empresas que existem
+  const { count: totalSemFiltro } = await supabase
+    .from('ctes').select('*', { count: 'exact', head: true })
+  const { data: empresas } = await supabase
+    .from('ctes').select('empresa_id').limit(10)
+  const empresasUnicas = [...new Set((empresas ?? []).map((r: any) => r.empresa_id))]
+
+  if (!empresa_id) {
+    return NextResponse.json({
+      info: 'Passe ?empresa_id=<uuid>',
+      total_ctes_no_banco_sem_filtro: totalSemFiltro,
+      empresa_ids_encontrados: empresasUnicas,
+      env_check: {
+        tem_supabase_url: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
+        tem_service_role: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
+        supabase_url_host: process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/^https?:\/\//, '').split('.')[0],
+      },
+    })
+  }
 
   // 1. Total geral
   const { count: total } = await supabase

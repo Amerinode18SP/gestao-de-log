@@ -36,6 +36,12 @@ export default function UsuariosPage() {
   const [erro, setErro] = useState('')
   const [linkConvite, setLinkConvite] = useState<{ email: string, url: string } | null>(null)
   const [copiado, setCopiado] = useState(false)
+  const [modalSenha, setModalSenha] = useState<Usuario | null>(null)
+  const [modalEditar, setModalEditar] = useState<Usuario | null>(null)
+  const [modalExcluir, setModalExcluir] = useState<Usuario | null>(null)
+  const [novaSenha, setNovaSenha] = useState('')
+  const [editNome, setEditNome] = useState('')
+  const [processando, setProcessando] = useState(false)
 
   const carregar = useCallback(async () => {
     setCarregando(true)
@@ -110,6 +116,57 @@ export default function UsuariosPage() {
       setCopiado(true)
       setTimeout(() => setCopiado(false), 2500)
     } catch {}
+  }
+
+  async function definirSenha() {
+    if (!modalSenha) return
+    if (!novaSenha || novaSenha.length < 6) {
+      setErro('Senha deve ter pelo menos 6 caracteres'); return
+    }
+    setProcessando(true); setErro(''); setMensagem('')
+    try {
+      const res = await fetch('/api/usuarios/senha', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: modalSenha.id, senha: novaSenha })
+      })
+      const data = await res.json()
+      if (res.ok) {
+        setMensagem(`✅ Senha definida para ${modalSenha.nome}. Avise a pessoa.`)
+        setModalSenha(null); setNovaSenha('')
+      } else { setErro(data.error || 'Erro ao definir senha') }
+    } catch { setErro('Erro de conexão') }
+    setProcessando(false)
+  }
+
+  async function salvarEdicao() {
+    if (!modalEditar || !editNome.trim()) return
+    setProcessando(true); setErro(''); setMensagem('')
+    try {
+      const res = await fetch('/api/usuarios', {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: modalEditar.id, nome: editNome.trim() })
+      })
+      if (res.ok) {
+        setMensagem(`✅ Nome atualizado`)
+        setModalEditar(null); setEditNome('')
+        carregar()
+      } else { const d = await res.json(); setErro(d.error || 'Erro ao editar') }
+    } catch { setErro('Erro de conexão') }
+    setProcessando(false)
+  }
+
+  async function excluirUsuario() {
+    if (!modalExcluir) return
+    setProcessando(true); setErro(''); setMensagem('')
+    try {
+      const res = await fetch(`/api/usuarios?id=${modalExcluir.id}`, { method: 'DELETE' })
+      if (res.ok) {
+        setMensagem(`✅ Usuário ${modalExcluir.nome} excluído`)
+        setModalExcluir(null)
+        carregar()
+      } else { const d = await res.json(); setErro(d.error || 'Erro ao excluir') }
+    } catch { setErro('Erro de conexão') }
+    setProcessando(false)
   }
 
   async function alterarPapel(id: string, papel: string) {
@@ -313,6 +370,21 @@ export default function UsuariosPage() {
                                 style={{ padding: '4px 10px', fontSize: '11px', border: '1px solid #C7D2FE', borderRadius: '6px', background: '#F0F4FF', cursor: reenviando === u.id ? 'not-allowed' : 'pointer', color: '#4f46e5', fontWeight: '500' }}>
                                 {reenviando === u.id ? 'Enviando...' : '✉ Reenviar convite'}
                               </button>
+                              <button
+                                onClick={() => { setModalSenha(u); setNovaSenha('') }}
+                                style={{ padding: '4px 10px', fontSize: '11px', border: '1px solid #B7D4F0', borderRadius: '6px', background: '#F0F8FF', cursor: 'pointer', color: '#0C447C', fontWeight: '500' }}>
+                                🔑 Definir senha
+                              </button>
+                              <button
+                                onClick={() => { setModalEditar(u); setEditNome(u.nome) }}
+                                style={{ padding: '4px 10px', fontSize: '11px', border: '1px solid #D8D6D0', borderRadius: '6px', background: '#fff', cursor: 'pointer', color: '#444', fontWeight: '500' }}>
+                                ✏️ Editar
+                              </button>
+                              <button
+                                onClick={() => setModalExcluir(u)}
+                                style={{ padding: '4px 10px', fontSize: '11px', border: '1px solid #E8AEAE', borderRadius: '6px', background: '#FFF5F5', cursor: 'pointer', color: '#791F1F', fontWeight: '500' }}>
+                                🗑️ Excluir
+                              </button>
                             </div>
                           )}
                         </td>
@@ -325,6 +397,83 @@ export default function UsuariosPage() {
           )}
         </div>
       </main>
+
+      {/* Modal: definir senha (admin) */}
+      {modalSenha && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+          <div style={{ background: '#fff', borderRadius: '12px', width: '100%', maxWidth: '420px', padding: '28px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '14px' }}>
+              <h2 style={{ fontSize: '16px', fontWeight: '700', margin: 0 }}>🔑 Definir senha</h2>
+              <button onClick={() => { setModalSenha(null); setNovaSenha('') }} style={{ background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer', color: '#888' }}>×</button>
+            </div>
+            <p style={{ fontSize: '12px', color: '#666', marginBottom: '16px', lineHeight: '1.5' }}>
+              Você está definindo a senha para <b>{modalSenha.nome}</b> ({modalSenha.email}). Use só em emergência (a pessoa não consegue receber o link de redefinição). Avise a senha pessoalmente — ela pode trocar depois em Alterar senha.
+            </p>
+            <input type="password" value={novaSenha} onChange={e => setNovaSenha(e.target.value)} placeholder="Mínimo 6 caracteres" autoFocus
+              style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #D8D6D0', fontSize: '13px', outline: 'none', boxSizing: 'border-box', marginBottom: '20px' }} />
+            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+              <button onClick={() => { setModalSenha(null); setNovaSenha('') }}
+                style={{ padding: '9px 16px', fontSize: '13px', border: '1px solid #D8D6D0', borderRadius: '8px', background: '#fff', cursor: 'pointer' }}>Cancelar</button>
+              <button onClick={definirSenha} disabled={processando}
+                style={{ padding: '9px 16px', fontSize: '13px', fontWeight: '500', background: '#185FA5', color: '#fff', border: 'none', borderRadius: '8px', cursor: processando ? 'not-allowed' : 'pointer' }}>
+                {processando ? 'Salvando...' : 'Definir senha'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: editar usuario */}
+      {modalEditar && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+          <div style={{ background: '#fff', borderRadius: '12px', width: '100%', maxWidth: '420px', padding: '28px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '14px' }}>
+              <h2 style={{ fontSize: '16px', fontWeight: '700', margin: 0 }}>✏️ Editar usuário</h2>
+              <button onClick={() => { setModalEditar(null); setEditNome('') }} style={{ background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer', color: '#888' }}>×</button>
+            </div>
+            <p style={{ fontSize: '12px', color: '#666', marginBottom: '14px' }}>
+              Editando <b>{modalEditar.email}</b>. O email não pode ser alterado — pra mudar email, exclua e convide de novo.
+            </p>
+            <label style={{ fontSize: '12px', fontWeight: '500', display: 'block', marginBottom: '5px' }}>Nome</label>
+            <input value={editNome} onChange={e => setEditNome(e.target.value)} placeholder="Nome completo" autoFocus
+              style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #D8D6D0', fontSize: '13px', outline: 'none', boxSizing: 'border-box', marginBottom: '20px' }} />
+            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+              <button onClick={() => { setModalEditar(null); setEditNome('') }}
+                style={{ padding: '9px 16px', fontSize: '13px', border: '1px solid #D8D6D0', borderRadius: '8px', background: '#fff', cursor: 'pointer' }}>Cancelar</button>
+              <button onClick={salvarEdicao} disabled={processando || !editNome.trim()}
+                style={{ padding: '9px 16px', fontSize: '13px', fontWeight: '500', background: '#185FA5', color: '#fff', border: 'none', borderRadius: '8px', cursor: processando ? 'not-allowed' : 'pointer' }}>
+                {processando ? 'Salvando...' : 'Salvar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: excluir usuario */}
+      {modalExcluir && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+          <div style={{ background: '#fff', borderRadius: '12px', width: '100%', maxWidth: '420px', padding: '28px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '14px' }}>
+              <h2 style={{ fontSize: '16px', fontWeight: '700', margin: 0, color: '#791F1F' }}>🗑️ Excluir usuário</h2>
+              <button onClick={() => setModalExcluir(null)} style={{ background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer', color: '#888' }}>×</button>
+            </div>
+            <div style={{ background: '#FFF5F5', border: '1px solid #E8AEAE', borderRadius: '8px', padding: '14px', marginBottom: '20px' }}>
+              <p style={{ fontSize: '13px', color: '#791F1F', margin: 0, lineHeight: '1.5' }}>
+                Tem certeza que quer excluir <b>{modalExcluir.nome}</b> ({modalExcluir.email})?<br/>
+                Essa ação não pode ser desfeita. A pessoa perderá o acesso e os dados de perfil dela serão removidos. Se quiser apenas suspender, use <b>Desativar</b>.
+              </p>
+            </div>
+            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+              <button onClick={() => setModalExcluir(null)}
+                style={{ padding: '9px 16px', fontSize: '13px', border: '1px solid #D8D6D0', borderRadius: '8px', background: '#fff', cursor: 'pointer' }}>Cancelar</button>
+              <button onClick={excluirUsuario} disabled={processando}
+                style={{ padding: '9px 16px', fontSize: '13px', fontWeight: '500', background: '#791F1F', color: '#fff', border: 'none', borderRadius: '8px', cursor: processando ? 'not-allowed' : 'pointer' }}>
+                {processando ? 'Excluindo...' : 'Excluir definitivamente'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal convidar */}
       {modalAberto && (

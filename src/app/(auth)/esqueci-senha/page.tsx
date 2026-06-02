@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import { createSupabaseBrowser } from '@/lib/supabase/client'
 import Link from 'next/link'
 
 export default function EsqueciSenhaPage() {
@@ -9,24 +8,29 @@ export default function EsqueciSenhaPage() {
   const [enviado, setEnviado] = useState(false)
   const [erro, setErro] = useState('')
   const [loading, setLoading] = useState(false)
-  const supabase = createSupabaseBrowser()
 
   async function handleEnviar(e: React.FormEvent) {
     e.preventDefault()
     setErro('')
     setLoading(true)
-
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/redefinir-senha`,
-    })
-
-    if (error) {
-      setErro('Erro ao enviar e-mail. Verifique o endereço digitado.')
-      setLoading(false)
-      return
+    try {
+      const res = await fetch('/api/auth/esqueci-senha', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setErro(data?.error || 'Erro ao processar pedido.')
+        setLoading(false)
+        return
+      }
+      // Por seguranca, sempre mostra "enviado" mesmo se email nao existe
+      // (assim nao da pra adivinhar quais emails estao cadastrados)
+      setEnviado(true)
+    } catch {
+      setErro('Erro de conexão. Tente novamente.')
     }
-
-    setEnviado(true)
     setLoading(false)
   }
 

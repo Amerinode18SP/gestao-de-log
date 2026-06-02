@@ -46,17 +46,34 @@ export async function GET(_req: NextRequest) {
   const dataDe = fmtBR(inicio)
   const dataAte = fmtBR(hoje)
 
-  const base = { pagina: 1, registros_por_pagina: 5, apenas_importado_api: 'N' }
+  // Modo 1: ver primeiras CTes ordenadas por DATA_EMISSAO desc
   const candidates = [
-    // Ordenar por DATA_EMISSAO + variantes de "decrescente"
-    { ep: '/financas/contapagar/', call: 'ListarContasPagar', p: { ...base, ordenar_por: 'DATA_EMISSAO' } },
-    { ep: '/financas/contapagar/', call: 'ListarContasPagar', p: { ...base, ordenar_por: 'DATA_EMISSAO', ordem_descrescente: 'S' } },
-    { ep: '/financas/contapagar/', call: 'ListarContasPagar', p: { ...base, ordenar_por: 'DATA_EMISSAO', ordem_decrescente: 'S' } },
-    { ep: '/financas/contapagar/', call: 'ListarContasPagar', p: { ...base, ordenar_por: 'DATA_EMISSAO', ordem: 'desc' } },
-    { ep: '/financas/contapagar/', call: 'ListarContasPagar', p: { ...base, ordenar_por: 'DATA_EMISSAO', descrescente: 'S' } },
-    { ep: '/financas/contapagar/', call: 'ListarContasPagar', p: { ...base, ordenar_por: 'DATA_EMISSAO', decrescente: 'S' } },
-    // Ordenar por CODIGO desc (que normalmente cresce com tempo)
-    { ep: '/financas/contapagar/', call: 'ListarContasPagar', p: { ...base, ordenar_por: 'CODIGO' } },
+    { ep: '/financas/contapagar/', call: 'ListarContasPagar', p: {
+      pagina: 1, registros_por_pagina: 50, apenas_importado_api: 'N',
+      ordenar_por: 'DATA_EMISSAO', ordem_descrescente: 'S',
+    } },
+    // Modo 2: tentar filtrar por numero_documento direto pra achar 26971
+    { ep: '/financas/contapagar/', call: 'ListarContasPagar', p: {
+      pagina: 1, registros_por_pagina: 50, apenas_importado_api: 'N',
+      filtrar_apenas_titulo_documento: '000026971',
+    } },
+    { ep: '/financas/contapagar/', call: 'ListarContasPagar', p: {
+      pagina: 1, registros_por_pagina: 50, apenas_importado_api: 'N',
+      nNumDocumento: '000026971',
+    } },
+    { ep: '/financas/contapagar/', call: 'ListarContasPagar', p: {
+      pagina: 1, registros_por_pagina: 50, apenas_importado_api: 'N',
+      numero_documento: '000026971',
+    } },
+    // Modo 3: ordenar por CODIGO (lançamento) desc — vê se traz mais recente
+    { ep: '/financas/contapagar/', call: 'ListarContasPagar', p: {
+      pagina: 1, registros_por_pagina: 20, apenas_importado_api: 'N',
+      ordenar_por: 'CODIGO', ordem_descrescente: 'S',
+    } },
+    // Modo 4: ConsultarLancamento (se quiser achar uma especifica)
+    { ep: '/financas/contapagar/', call: 'ConsultarConta', p: {
+      chave_lancamento: { numero_documento_fiscal: '000026971' },
+    } },
   ]
   const results = []
   for (const c of candidates) {

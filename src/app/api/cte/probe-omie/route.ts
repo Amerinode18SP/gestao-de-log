@@ -28,7 +28,7 @@ async function tryCall(endpoint: string, call: string, param: object) {
       status: res.status,
       ok: res.ok,
       ms: Date.now() - start,
-      sample: text.slice(0, 800),
+      sample: text.slice(0, 30000),
     }
   } catch (e: any) {
     return { endpoint, call, error: e.message, ms: Date.now() - start }
@@ -46,10 +46,10 @@ export async function GET(_req: NextRequest) {
   const dataDe = fmtBR(inicio)
   const dataAte = fmtBR(hoje)
 
-  // Modo 1: ver primeiras CTes ordenadas por DATA_EMISSAO desc
+  // Modo 1: ver primeiras CTes ordenadas por DATA_EMISSAO desc (so 1 call)
   const candidates = [
     { ep: '/financas/contapagar/', call: 'ListarContasPagar', p: {
-      pagina: 1, registros_por_pagina: 50, apenas_importado_api: 'N',
+      pagina: 1, registros_por_pagina: 100, apenas_importado_api: 'N',
       ordenar_por: 'DATA_EMISSAO', ordem_descrescente: 'S',
     } },
     // Modo 2: tentar filtrar por numero_documento direto pra achar 26971
@@ -75,11 +75,7 @@ export async function GET(_req: NextRequest) {
       chave_lancamento: { numero_documento_fiscal: '000026971' },
     } },
   ]
-  const results = []
-  for (const c of candidates) {
-    results.push(await tryCall(c.ep, c.call, c.p))
-    // Espera 3s entre chamadas pra Omie nao detectar como REDUNDANT
-    await new Promise(r => setTimeout(r, 3000))
-  }
-  return NextResponse.json({ results })
+  // Só o primeiro candidato pra evitar REDUNDANT
+  const result = await tryCall(candidates[0].ep, candidates[0].call, candidates[0].p)
+  return NextResponse.json({ results: [result] })
 }

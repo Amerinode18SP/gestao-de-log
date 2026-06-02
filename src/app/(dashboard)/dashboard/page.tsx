@@ -160,13 +160,19 @@ export default function DashboardPage() {
     } catch (e) { console.error('Erro ao verificar alertas:', e) }
   }
 
+  // Sync rapido — processa MAX_LOTES de 20 paginas cada (=1000 conta-pagar
+  // mais recentes por lote). Com ordenar_por=DATA_EMISSAO desc, isso cobre
+  // as CTes dos ultimos meses sem disparar rate limit da Omie.
+  const MAX_LOTES = 3  // 3 lotes * 20 paginas * 50 entries = ~3000 contas recentes
   const iniciarSync = async () => {
     setSync({ running: true, pagina: 1, total: 0, importados: 0, atualizados: 0, concluido: false })
     let pagina = 1
     let totalImportados = 0
     let totalAtualizados = 0
+    let loteAtual = 0
     try {
-      while (true) {
+      while (loteAtual < MAX_LOTES) {
+        loteAtual++
         const res = await fetch('/api/omie/sync', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer interno' },
@@ -180,24 +186,45 @@ export default function DashboardPage() {
         const data = await res.json()
         totalImportados  += data.importados ?? 0
         totalAtualizados += data.atualizados ?? 0
+
+        // Se backend retornou alerta de rate limit, para imediatamente
+        const rateLimitSegundos = data.rate_limit_aguardar_segundos
+        if (rateLimitSegundos) {
+          setSync({
+            running: false,
+            pagina: data.proxima_pagina ?? pagina,
+            total: data.total_paginas ?? 0,
+            importados: totalImportados,
+            atualizados: totalAtualizados,
+            concluido: false,
+            erro: `Omie pediu pausa de ${rateLimitSegundos}s. Importados ${totalImportados} novos ate aqui. Aguarde ${Math.ceil(rateLimitSegundos/60)}min e clique em Sincronizar de novo pra continuar.`,
+          })
+          break
+        }
+
+        const concluiu = !data.proxima_pagina
+        const limiteAtingido = loteAtual >= MAX_LOTES && !concluiu
+
         setSync({
-          running:     !!data.proxima_pagina,
-          pagina:      data.proxima_pagina ?? pagina,
-          total:       data.total_paginas ?? 0,
-          importados:  totalImportados,
+          running: !concluiu && !limiteAtingido,
+          pagina: data.proxima_pagina ?? pagina,
+          total: data.total_paginas ?? 0,
+          importados: totalImportados,
           atualizados: totalAtualizados,
-          concluido:   !data.proxima_pagina,
+          concluido: concluiu,
+          erro: limiteAtingido
+            ? `Importados ${totalImportados} novos das ${loteAtual * 20} paginas mais recentes. Pra continuar buscando historico antigo, clique em Sincronizar de novo.`
+            : undefined,
         })
-        if (!data.proxima_pagina) break
+        if (concluiu) break
         pagina = data.proxima_pagina
-        await new Promise(r => setTimeout(r, 500))
+        // Pausa entre lotes para Omie respirar
+        await new Promise(r => setTimeout(r, 2000))
       }
       await carregarResumo(filtroStatus, busca, dataInicio, dataFim)
       await carregarCtes(1, filtroStatus, busca, dataInicio, dataFim)
-      await carregarUltimoSync(new Date().toISOString()) // Força data atual
-      // Auto-preencher transportadoras e centros de custo após sync
+      await carregarUltimoSync(new Date().toISOString())
       await resolverTransportadoras()
-      // Verificar alertas após sync
       await verificarAlertas()
     } catch (e: any) {
       setSync(s => ({ ...s, running: false, erro: e.message }))

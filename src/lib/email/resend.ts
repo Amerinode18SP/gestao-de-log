@@ -151,3 +151,82 @@ function escapeHtml(s: string) {
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;')
 }
+
+// ============================================================
+// Template: Relatorio periodico (semanal/mensal)
+// ============================================================
+interface RelatorioParams {
+  titulo: string
+  periodoLabel: string      // "Semana de 26/05 a 01/06" etc
+  kpis: { label: string; valor: string }[]
+  topFornecedores: { nome: string; valor: number; ctes: number }[]
+  porModal?: { modal: string; valor: number }[]
+  porEstado?: { uf: string; valor: number; ctes: number }[]
+  totalCtes: number
+  appUrl: string
+}
+
+export function templateRelatorio(p: RelatorioParams) {
+  const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+  const linha = (label: string, valor: string, idx: number) => `
+    <tr style="background:${idx % 2 ? '#FAFAF8' : '#fff'}">
+      <td style="padding:10px 14px;font-size:13px;color:#444441">${escapeHtml(label)}</td>
+      <td style="padding:10px 14px;font-size:13px;color:#1A1916;text-align:right;font-weight:500">${escapeHtml(valor)}</td>
+    </tr>`
+
+  const fornHtml = p.topFornecedores.slice(0, 10).map((f, i) => `
+    <tr style="background:${i % 2 ? '#FAFAF8' : '#fff'}">
+      <td style="padding:10px 14px;font-size:12px;color:#444441">${escapeHtml(f.nome)}</td>
+      <td style="padding:10px 14px;font-size:12px;color:#666;text-align:right">${f.ctes}</td>
+      <td style="padding:10px 14px;font-size:12px;color:#1A1916;text-align:right;font-weight:500">${fmt(f.valor)}</td>
+    </tr>`).join('')
+
+  return `<!DOCTYPE html>
+<html lang="pt-BR"><head><meta charset="UTF-8"></head>
+<body style="margin:0;padding:0;background:#F5F4F0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;color:#1A1916">
+  <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:#F5F4F0;padding:32px 16px">
+    <tr><td align="center">
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="max-width:640px;background:#fff;border-radius:12px;overflow:hidden;border:1px solid #E2E0D8">
+        <tr><td style="background:#185FA5;padding:24px 32px">
+          <div style="color:#fff;font-size:13px;opacity:.85">📊 ${escapeHtml(p.periodoLabel)}</div>
+          <div style="color:#fff;font-size:20px;font-weight:600;margin-top:4px">${escapeHtml(p.titulo)}</div>
+        </td></tr>
+
+        <tr><td style="padding:24px 32px 8px">
+          <h2 style="font-size:14px;font-weight:600;color:#185FA5;margin:0 0 12px;text-transform:uppercase;letter-spacing:.5px">Resumo</h2>
+          <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+            ${p.kpis.map((k, i) => linha(k.label, k.valor, i)).join('')}
+          </table>
+        </td></tr>
+
+        ${p.topFornecedores.length ? `
+        <tr><td style="padding:24px 32px 8px">
+          <h2 style="font-size:14px;font-weight:600;color:#185FA5;margin:0 0 12px;text-transform:uppercase;letter-spacing:.5px">Top Fornecedores</h2>
+          <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+            <thead><tr style="background:#185FA5;color:#fff">
+              <th style="padding:9px 14px;font-size:11px;text-align:left;font-weight:500">Fornecedor</th>
+              <th style="padding:9px 14px;font-size:11px;text-align:right;font-weight:500">CT-e</th>
+              <th style="padding:9px 14px;font-size:11px;text-align:right;font-weight:500">Valor</th>
+            </tr></thead>
+            <tbody>${fornHtml}</tbody>
+          </table>
+        </td></tr>` : ''}
+
+        <tr><td style="padding:24px 32px;text-align:center">
+          <a href="${p.appUrl}/dashboard" style="display:inline-block;background:#185FA5;color:#fff;text-decoration:none;padding:11px 24px;border-radius:8px;font-size:13px;font-weight:500">
+            Ver dashboard completo
+          </a>
+        </td></tr>
+
+        <tr><td style="padding:16px 32px;background:#FAFAF8;border-top:1px solid #E8E6E0">
+          <p style="font-size:11px;color:#888780;margin:0;line-height:1.5">
+            Você está recebendo este email porque está na lista de destinatários de relatórios do <b>Gestão de Log</b>.
+            Para deixar de receber, peça ao administrador para remover seu email em Configurações.
+          </p>
+        </td></tr>
+      </table>
+      <p style="font-size:11px;color:#888780;margin:14px 0 0">Gestão de Log © ${new Date().getFullYear()}</p>
+    </td></tr>
+  </table>
+</body></html>`
+}

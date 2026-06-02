@@ -35,7 +35,7 @@ export default function UsuariosPage() {
   const [reenviando, setReenviando] = useState<string | null>(null)
   const [mensagem, setMensagem] = useState('')
   const [erro, setErro] = useState('')
-  const [linkConvite, setLinkConvite] = useState<{ email: string, url: string } | null>(null)
+  const [linkConvite, setLinkConvite] = useState<{ email: string, url: string, emailEnviado: boolean } | null>(null)
   const [copiado, setCopiado] = useState(false)
   const [modalSenha, setModalSenha] = useState<Usuario | null>(null)
   const [modalEditar, setModalEditar] = useState<Usuario | null>(null)
@@ -72,9 +72,13 @@ export default function UsuariosPage() {
       })
       const data = await res.json()
       if (res.ok) {
-        setMensagem(`✅ Convite criado para ${novoEmail}`)
+        if (data.email_enviado) {
+          setMensagem(`✅ Email de convite enviado para ${novoEmail}`)
+        } else {
+          setMensagem(`⚠ Conta criada para ${novoEmail}, mas email não saiu (${data.message?.match(/\((.+)\)/)?.[1] || 'verifique RESEND_API_KEY'}). Copie o link abaixo e mande manualmente.`)
+        }
         if (data.action_link) {
-          setLinkConvite({ email: novoEmail, url: data.action_link })
+          setLinkConvite({ email: novoEmail, url: data.action_link, emailEnviado: !!data.email_enviado })
         }
         setNovoEmail(''); setNovoNome(''); setNovoPapel('visualizador')
         setModalAberto(false)
@@ -99,9 +103,13 @@ export default function UsuariosPage() {
       })
       const data = await res.json()
       if (res.ok) {
-        setMensagem(`✅ Convite recriado para ${u.email}`)
+        if (data.email_enviado) {
+          setMensagem(`✅ Email de convite reenviado para ${u.email}`)
+        } else {
+          setMensagem(`⚠ Conta recriada para ${u.email}, mas email não saiu (${data.message?.match(/\((.+)\)/)?.[1] || 'verifique RESEND_API_KEY'}). Copie o link abaixo.`)
+        }
         if (data.action_link) {
-          setLinkConvite({ email: u.email, url: data.action_link })
+          setLinkConvite({ email: u.email, url: data.action_link, emailEnviado: !!data.email_enviado })
         }
       } else {
         setErro(data.error || 'Erro ao reenviar convite')
@@ -273,12 +281,19 @@ export default function UsuariosPage() {
         )}
 
         {linkConvite && (
-          <div style={{ background: '#FFF7E0', border: '1px solid #F0D080', borderRadius: '8px', padding: '16px 20px', marginBottom: '16px' }}>
-            <div style={{ fontSize: '13px', fontWeight: '600', color: '#6B4500', marginBottom: '6px' }}>
-              📧 Link de acesso para <b>{linkConvite.email}</b>
+          <div style={{
+            background: linkConvite.emailEnviado ? '#EAF3DE' : '#FFF7E0',
+            border: `1px solid ${linkConvite.emailEnviado ? '#B3D48A' : '#F0D080'}`,
+            borderRadius: '8px', padding: '16px 20px', marginBottom: '16px'
+          }}>
+            <div style={{ fontSize: '13px', fontWeight: '600', color: linkConvite.emailEnviado ? '#27500A' : '#6B4500', marginBottom: '6px' }}>
+              {linkConvite.emailEnviado ? '📧 Email enviado!' : '📋 Link de acesso (email não saiu)'} — {linkConvite.email}
             </div>
-            <div style={{ fontSize: '12px', color: '#7A5900', marginBottom: '10px', lineHeight: '1.5' }}>
-              O Supabase pode demorar pra mandar o email (ou cair na caixa de spam). Pra agilizar, copie esse link e mande direto pra pessoa via WhatsApp, email ou Teams. Ela só precisa clicar pra definir a senha.
+            <div style={{ fontSize: '12px', color: linkConvite.emailEnviado ? '#3A6E1A' : '#7A5900', marginBottom: '10px', lineHeight: '1.5' }}>
+              {linkConvite.emailEnviado
+                ? <>O email foi enviado pelo Resend (gestao-de-log@amerinode.com.br). Pode demorar até 1 min e às vezes cai no spam na primeira vez. Se ela não receber, copie o link abaixo e mande direto.</>
+                : <>O email não foi enviado (provavelmente <b>RESEND_API_KEY</b> ausente no Vercel). Copie o link abaixo e mande manualmente via WhatsApp/email/Teams. Configure o Vercel pro próximo convite sair automático.</>
+              }
             </div>
             <div style={{ display: 'flex', gap: '8px', alignItems: 'stretch' }}>
               <input

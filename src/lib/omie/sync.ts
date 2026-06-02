@@ -174,7 +174,18 @@ export async function syncCtes(
 
       if (error) {
         console.error('[sync] Erro no upsert:', error.message)
+        console.error('[sync] Sample do upsert que falhou:', JSON.stringify(upserts[0]).slice(0, 800))
         result.erros++
+        if (!(result as any).erros_detalhes) (result as any).erros_detalhes = []
+        if ((result as any).erros_detalhes.length < 3) {
+          (result as any).erros_detalhes.push({
+            mensagem: error.message,
+            details: (error as any).details,
+            hint: (error as any).hint,
+            code: (error as any).code,
+            sample: upserts[0],
+          })
+        }
       } else {
         lote.forEach(raw => {
           if (existentesMap.has(raw.nCodCte)) result.atualizados++

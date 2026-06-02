@@ -46,22 +46,19 @@ export async function GET(_req: NextRequest) {
   const dataDe = fmtBR(inicio)
   const dataAte = fmtBR(hoje)
 
+  const base = { pagina: 1, registros_por_pagina: 3, apenas_importado_api: 'N' }
   const candidates = [
-    // ListarContasPagar com filtro de data - principal candidato
-    { ep: '/financas/contapagar/', call: 'ListarContasPagar', p: {
-      pagina: 1, registros_por_pagina: 5,
-      filtrar_apenas_inclusao_titulos: 'S',
-      filtrar_data_de: dataDe, filtrar_data_ate: dataAte,
-    } },
-    { ep: '/financas/contapagar/', call: 'ListarContasPagar', p: {
-      pagina: 1, registros_por_pagina: 5,
-      filtrar_data_de: dataDe, filtrar_data_ate: dataAte,
-    } },
-    // Endpoint alternativo de CTe (incluir/cancelar)
-    { ep: '/produtos/cte/',   call: 'ConsultarCte', p: { nCodCte: 1 } },
-    { ep: '/produtos/cte/',   call: 'PesquisarCT', p: { nPagina: 1, nRegPorPagina: 5 } },
-    { ep: '/produtos/cte/',   call: 'ObterCte', p: { nPagina: 1, nRegPorPagina: 5 } },
-    { ep: '/produtos/cte/',   call: 'BuscarCte', p: { nPagina: 1, nRegPorPagina: 5 } },
+    // 1. Sem filtro de data — para ver ordenação default e primeiro item
+    { ep: '/financas/contapagar/', call: 'ListarContasPagar', p: base, label: 'sem_filtro' },
+    // 2. Tentar variações de nomes de campo para filtro de data
+    { ep: '/financas/contapagar/', call: 'ListarContasPagar', p: { ...base, data_de: dataDe, data_ate: dataAte }, label: 'data_de/ate' },
+    { ep: '/financas/contapagar/', call: 'ListarContasPagar', p: { ...base, data_inicio: dataDe, data_fim: dataAte }, label: 'data_inicio/fim' },
+    { ep: '/financas/contapagar/', call: 'ListarContasPagar', p: { ...base, dDataDe: dataDe, dDataAte: dataAte }, label: 'dDataDe/Ate' },
+    { ep: '/financas/contapagar/', call: 'ListarContasPagar', p: { ...base, filtrar_apenas_emitidas_de: dataDe, filtrar_apenas_emitidas_ate: dataAte }, label: 'filtrar_apenas_emitidas_*' },
+    { ep: '/financas/contapagar/', call: 'ListarContasPagar', p: { ...base, dDtEmissaoDe: dataDe, dDtEmissaoAte: dataAte }, label: 'dDtEmissao_de/ate' },
+    // 3. Tentar parâmetros de ordenação
+    { ep: '/financas/contapagar/', call: 'ListarContasPagar', p: { ...base, ordenar_por: 'data_emissao', ordem_descrescente: 'S' }, label: 'ordenar_emissao_desc' },
+    { ep: '/financas/contapagar/', call: 'ListarContasPagar', p: { ...base, cOrdenarPor: 'DATA_EMISSAO', cOrdemDecrescente: 'S' }, label: 'cOrdenar_DATA_EMISSAO' },
   ]
   const results = []
   for (const c of candidates) {

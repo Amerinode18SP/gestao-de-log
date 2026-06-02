@@ -79,24 +79,30 @@ export class OmieClient {
   }
 
   // ----------------------------------------------------------
-  // CT-e via Contas a Pagar (uma página)
+  // CT-e via endpoint específico /geral/cte/ + ListarCte
+  // Ordenado por DATA_EMISSAO desc → traz mais recentes primeiro,
+  // garante que CTes novas (ainda não viraram conta a pagar) apareçam.
   // ----------------------------------------------------------
   async listarCtes(pagina = 1, registrosPorPagina = 50): Promise<OmieListaCteResponse> {
     const data = await this.call<any>(
-      '/financas/contapagar/',
-      'ListarContasPagar',
-      { pagina, registros_por_pagina: registrosPorPagina, apenas_importado_api: 'N' }
+      '/geral/cte/',
+      'ListarCte',
+      {
+        nPagina: pagina,
+        nRegPorPagina: registrosPorPagina,
+        cOrdenarPor: 'DATA_EMISSAO',
+        cOrdemDecrescente: 'S',
+      }
     )
 
-    const todos = data.conta_pagar_cadastro ?? []
-    const ctes  = todos.filter((r: any) => r.codigo_tipo_documento === 'CTE')
+    const ctes: OmieCte[] = data.listaCte ?? []
 
     return {
       nPagina:       pagina,
-      nTotPaginas:   data.total_de_paginas ?? 1,
+      nTotPaginas:   data.nTotPaginas ?? 1,
       nRegistros:    ctes.length,
-      nTotRegistros: data.total_de_registros ?? 0,
-      listaCte:      ctes.map((r: any) => this.mapContaPagarToCte(r)),
+      nTotRegistros: data.nTotRegistros ?? 0,
+      listaCte:      ctes,  // já vem em formato OmieCte direto
     }
   }
 

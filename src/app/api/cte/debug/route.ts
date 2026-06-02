@@ -9,12 +9,6 @@ import { NextRequest, NextResponse } from 'next/server'
 export const maxDuration = 30
 
 export async function GET(req: NextRequest) {
-  // Auth
-  const auth = req.headers.get('x-debug-secret')
-  if (auth !== process.env.CRON_SECRET) {
-    return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
-  }
-
   const pagina = Number(req.nextUrl.searchParams.get('pagina') ?? '1')
   const ordenarPor = req.nextUrl.searchParams.get('ordenar_por') ?? 'DATA_EMISSAO'
   const desc = req.nextUrl.searchParams.get('desc') ?? 'S'

@@ -171,11 +171,14 @@ export async function POST(req: NextRequest) {
       totalSegundoCard = ctesMesAnt.reduce((s: number, r: any) => s + (r.valor_servico ?? 0), 0)
       labelSegundoCard = `${nomesMesLong[iniMesAnt.getMonth()]}/${iniMesAnt.getFullYear()} (mês anterior)`
     } else {
-      // Semanal: mes atual ate hoje (TAMBEM usado pra gerar grafico semanas-do-mes)
+      // Semanal:
+      //   Card 2 = mes ATUAL ate hoje (ex jun/26 ate hoje, mesmo que pouco).
+      //   Grafico semanas = mes fechado ANTERIOR (ex Maio inteiro), pra sempre ter
+      //   dado real e dar contexto a semana do relatorio.
       const inicioMesAtual = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, '0')}-01`
-      ctesMesAtualParaGrafico = await fetchAll<any>((f, t) => supabase
+      const ctesMesAtual = await fetchAll<any>((f, t) => supabase
         .from('ctes')
-        .select('valor_servico, data_emissao')
+        .select('valor_servico')
         .eq('empresa_id', empresa_id)
         .not('chave_acesso', 'is', null)
         .not('chave_acesso', 'ilike', 'omie-%')
@@ -183,8 +186,22 @@ export async function POST(req: NextRequest) {
         .gte('data_emissao', inicioMesAtual)
         .lte('data_emissao', hojeStr)
         .range(f, t))
-      totalSegundoCard = ctesMesAtualParaGrafico.reduce((s: number, r: any) => s + (r.valor_servico ?? 0), 0)
+      totalSegundoCard = ctesMesAtual.reduce((s: number, r: any) => s + (r.valor_servico ?? 0), 0)
       labelSegundoCard = `${nomesMesCurto[hoje.getMonth()]}/${String(hoje.getFullYear()).slice(2)} até hoje`
+
+      // Grafico de semanas: mes fechado anterior (Maio quando hoje e Jun)
+      const inicioMesAntStr = new Date(hoje.getFullYear(), hoje.getMonth() - 1, 1).toISOString().slice(0, 10)
+      const fimMesAntStr = new Date(hoje.getFullYear(), hoje.getMonth(), 0).toISOString().slice(0, 10)
+      ctesMesAtualParaGrafico = await fetchAll<any>((f, t) => supabase
+        .from('ctes')
+        .select('valor_servico, data_emissao')
+        .eq('empresa_id', empresa_id)
+        .not('chave_acesso', 'is', null)
+        .not('chave_acesso', 'ilike', 'omie-%')
+        .neq('status', 'Cancelado')
+        .gte('data_emissao', inicioMesAntStr)
+        .lte('data_emissao', fimMesAntStr)
+        .range(f, t))
     }
 
     // Label do PRIMEIRO card (periodo do relatorio)
@@ -226,8 +243,10 @@ export async function POST(req: NextRequest) {
     let porSemanaDoMes: { label: string; valor: number }[] = []
     let porSemanaDoMesLabel = ''
     if (freq === 'Semanal') {
-      porSemanaDoMes = bucketsPorSemanaDoMes(ctesMesAtualParaGrafico, { ano: hoje.getFullYear(), mes: hoje.getMonth() })
-      porSemanaDoMesLabel = `${nomesMesLong[hoje.getMonth()]}/${hoje.getFullYear()} — semanas do mês atual`
+      // Mes fechado anterior (Maio quando hoje e Jun) — assim sempre tem dado completo
+      const mesAntDate = new Date(hoje.getFullYear(), hoje.getMonth() - 1, 1)
+      porSemanaDoMes = bucketsPorSemanaDoMes(ctesMesAtualParaGrafico, { ano: mesAntDate.getFullYear(), mes: mesAntDate.getMonth() })
+      porSemanaDoMesLabel = `${nomesMesLong[mesAntDate.getMonth()]}/${mesAntDate.getFullYear()} — semanas do mês anterior`
     }
 
     // 6. Distribuição EVOLUÇÃO TEMPORAL

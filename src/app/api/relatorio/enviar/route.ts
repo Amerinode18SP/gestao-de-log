@@ -39,13 +39,14 @@ export async function POST(req: NextRequest) {
 
     // 2. Define janela de datas
     //    Semanal: ultima semana fechada (segunda anterior a domingo anterior).
-    //    Mensal: mesmo intervalo de hoje 1 mes atras ate hoje.
+    //    Mensal: mes fechado anterior (dia 01 ao ultimo dia do mes anterior).
     const hoje = new Date()
     let ini: Date
     let fim: Date
     if (freq === 'Mensal') {
-      ini = new Date(hoje); ini.setMonth(hoje.getMonth() - 1)
-      fim = new Date(hoje)
+      // Mes fechado anterior. Ex: hoje 03/06/26 -> 01/05/26 a 31/05/26.
+      ini = new Date(hoje.getFullYear(), hoje.getMonth() - 1, 1)
+      fim = new Date(hoje.getFullYear(), hoje.getMonth(), 0)  // dia 0 do mes atual = ult dia mes anterior
     } else {
       // Quero a semana fechada anterior: segunda passada ate domingo passado.
       // getDay: 0=Dom, 1=Seg, 2=Ter, ... 6=Sab.
@@ -141,32 +142,66 @@ export async function POST(req: NextRequest) {
     const mesesAtivos = gastosAnual.filter(m => m.valor > 0).length
     const mediaMensal = mesesAtivos > 0 ? totalAno / mesesAtivos : 0
 
-    // 4.5. Mes até hoje (mes atual de 01 até hoje)
-    const inicioMesAtual = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, '0')}-01`
-    const ctesMesAtual = await fetchAll<any>((f, t) => supabase
-      .from('ctes')
-      .select('valor_servico')
-      .eq('empresa_id', empresa_id)
-      .not('chave_acesso', 'is', null)
-      .not('chave_acesso', 'ilike', 'omie-%')
-      .neq('status', 'Cancelado')
-      .gte('data_emissao', inicioMesAtual)
-      .lte('data_emissao', hojeStr)
-      .range(f, t))
-    const totalMesAtual = ctesMesAtual.reduce((s: number, r: any) => s + (r.valor_servico ?? 0), 0)
+    const nomesMesCurto = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez']
+    const nomesMesLong  = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro']
 
-    // 6. Distribuição POR DIA DA SEMANA
-    //    Semanal: dias EXATOS da semana do relatorio (seg 25/05, ter 26/05...).
-    //    Mensal:  agregado dos ultimos 30 dias (todas as segundas, etc).
+    // 4.5. Calcula o CARD COMPARATIVO 2 (depende da frequencia):
+    //   Semanal: "Mes atual ate hoje" (01 ate hoje)
+    //   Mensal:  "Mes anterior" ao mes do relatorio (ex: relat Maio -> card Abril)
+    let totalSegundoCard: number
+    let labelSegundoCard: string
+    if (freq === 'Mensal') {
+      // Mes anterior ao mes do relatorio (ini = primeiro dia do mes do relat).
+      const iniMesAnt = new Date(ini.getFullYear(), ini.getMonth() - 1, 1)
+      const fimMesAnt = new Date(ini.getFullYear(), ini.getMonth(), 0)
+      const iniMesAntStr = iniMesAnt.toISOString().slice(0, 10)
+      const fimMesAntStr = fimMesAnt.toISOString().slice(0, 10)
+      const ctesMesAnt = await fetchAll<any>((f, t) => supabase
+        .from('ctes')
+        .select('valor_servico')
+        .eq('empresa_id', empresa_id)
+        .not('chave_acesso', 'is', null)
+        .not('chave_acesso', 'ilike', 'omie-%')
+        .neq('status', 'Cancelado')
+        .gte('data_emissao', iniMesAntStr)
+        .lte('data_emissao', fimMesAntStr)
+        .range(f, t))
+      totalSegundoCard = ctesMesAnt.reduce((s: number, r: any) => s + (r.valor_servico ?? 0), 0)
+      labelSegundoCard = `${nomesMesLong[iniMesAnt.getMonth()]}/${iniMesAnt.getFullYear()} (mês anterior)`
+    } else {
+      // Semanal: mes atual ate hoje
+      const inicioMesAtual = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, '0')}-01`
+      const ctesMesAtual = await fetchAll<any>((f, t) => supabase
+        .from('ctes')
+        .select('valor_servico')
+        .eq('empresa_id', empresa_id)
+        .not('chave_acesso', 'is', null)
+        .not('chave_acesso', 'ilike', 'omie-%')
+        .neq('status', 'Cancelado')
+        .gte('data_emissao', inicioMesAtual)
+        .lte('data_emissao', hojeStr)
+        .range(f, t))
+      totalSegundoCard = ctesMesAtual.reduce((s: number, r: any) => s + (r.valor_servico ?? 0), 0)
+      labelSegundoCard = `${nomesMesCurto[hoje.getMonth()]}/${String(hoje.getFullYear()).slice(2)} até hoje`
+    }
+
+    // Label do PRIMEIRO card (periodo do relatorio)
+    const labelPrimeiroCard = freq === 'Mensal'
+      ? `${nomesMesLong[ini.getMonth()]}/${ini.getFullYear()} (este mês)`
+      : 'Esta semana'
+
+    // 6. Distribuição EVOLUÇÃO TEMPORAL
+    //    Semanal: gasto por dia da semana (Seg-Sex, datas exatas).
+    //    Mensal:  gasto por SEMANA do mes do relatorio (Sem 1, Sem 2...) — evolucao semanal.
     const nomesDia = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
     const porDiaSemana: { label: string; valor: number }[] = []
     let diaSemanaLabel = ''
+    let tituloEvolucao = ''
 
     if (freq === 'Semanal') {
-      // Usa os 7 dias da semana fechada do relatorio (ini=seg, fim=dom)
-      // e mostra Seg a Sex (5 dias uteis).
+      tituloEvolucao = 'CT-e por dia da semana'
       const ctesSemana = ctes ?? []
-      for (let i = 0; i < 5; i++) {  // Seg=0, Ter=1, ... Sex=4
+      for (let i = 0; i < 5; i++) {
         const dia = new Date(ini); dia.setDate(ini.getDate() + i)
         const diaStr = dia.toISOString().slice(0, 10)
         const total = ctesSemana
@@ -176,46 +211,51 @@ export async function POST(req: NextRequest) {
         const mm = String(dia.getMonth() + 1).padStart(2, '0')
         porDiaSemana.push({ label: `${nomesDia[i + 1]} ${dd}/${mm}`, valor: total })
       }
-      diaSemanaLabel = `Semana ${fmtBR(ini)} a ${fmtBR(fim)}`
+      diaSemanaLabel = `Semana ${fmtBR(ini)} a ${fmtBR(fim)} — só dias úteis`
     } else {
-      // Mensal: agrega ultimos 30 dias por dia da semana
-      const inicio30d = new Date(hoje.getTime() - 30 * 24 * 60 * 60 * 1000)
-      const inicio30dStr = inicio30d.toISOString().slice(0, 10)
-      const ctesUltimos30 = await fetchAll<any>((f, t) => supabase
-        .from('ctes')
-        .select('valor_servico, data_emissao')
-        .eq('empresa_id', empresa_id)
-        .not('chave_acesso', 'is', null)
-        .not('chave_acesso', 'ilike', 'omie-%')
-        .neq('status', 'Cancelado')
-        .gte('data_emissao', inicio30dStr)
-        .lte('data_emissao', hojeStr)
-        .range(f, t))
-      for (let d = 1; d <= 5; d++) {
-        let total = 0
-        ;(ctesUltimos30 ?? []).forEach((r: any) => {
-          if (!r.data_emissao) return
-          const dt = new Date(r.data_emissao + 'T12:00:00')
-          if (dt.getDay() === d) total += r.valor_servico ?? 0
+      // MENSAL: agrupa por semana do mes (5 buckets: 01-07, 08-14, 15-21, 22-28, 29-fim).
+      tituloEvolucao = 'CT-e por semana'
+      const ctesMes = ctes ?? []
+      const ultimoDia = fim.getDate()
+      const mm = String(ini.getMonth() + 1).padStart(2, '0')
+      const buckets = [
+        { ini: 1,  fim: 7  },
+        { ini: 8,  fim: 14 },
+        { ini: 15, fim: 21 },
+        { ini: 22, fim: 28 },
+        { ini: 29, fim: ultimoDia },
+      ]
+      buckets.forEach((b, idx) => {
+        if (b.ini > ultimoDia) return
+        const fimReal = Math.min(b.fim, ultimoDia)
+        const total = ctesMes
+          .filter((r: any) => {
+            const dia = parseInt(String(r.data_emissao).slice(8, 10), 10)
+            return dia >= b.ini && dia <= fimReal
+          })
+          .reduce((s: number, r: any) => s + (r.valor_servico ?? 0), 0)
+        porDiaSemana.push({
+          label: `Sem ${idx + 1} (${String(b.ini).padStart(2, '0')}-${String(fimReal).padStart(2, '0')}/${mm})`,
+          valor: total,
         })
-        porDiaSemana.push({ label: nomesDia[d], valor: total })
-      }
-      diaSemanaLabel = `Últimos 30 dias`
+      })
+      diaSemanaLabel = `${nomesMesLong[ini.getMonth()]}/${ini.getFullYear()} — por semana`
     }
 
     // 7. Renderiza template visual
-    const nomesMesCurto = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez']
     const html = templateRelatorio({
       periodoLabel,
       totalGasto,
-      totalMesAtual,
+      totalMesAtual: totalSegundoCard,
       totalAno,
       mediaMensal,
       totalCtes: qtd,
       ticketMedio,
       tipoPeriodo: freq,
-      labelMesAtual: `${nomesMesCurto[hoje.getMonth()]}/${String(hoje.getFullYear()).slice(2)} até hoje`,
+      labelPrimeiroCard,
+      labelMesAtual: labelSegundoCard,
       labelAno: `${hoje.getFullYear()} até hoje`,
+      tituloEvolucao,
       gastosAnual,
       porDiaSemana,
       mesAtualLabel: diaSemanaLabel,
@@ -234,11 +274,12 @@ export async function POST(req: NextRequest) {
       resultados.push({ to, ...r })
     }
 
-    // 6. Marca ultimo envio
+    // 6. Marca ultimo envio (campo separado por frequencia)
     if (!emails_override) {
+      const campo = freq === 'Mensal' ? 'ultimo_envio_mensal_em' : 'ultimo_envio_semanal_em'
       await supabase
         .from('parametros_alerta')
-        .update({ ultimo_envio_em: new Date().toISOString() })
+        .update({ [campo]: new Date().toISOString() })
         .eq('empresa_id', empresa_id)
     }
 

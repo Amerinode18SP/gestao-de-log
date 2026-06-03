@@ -28,11 +28,13 @@ export default function ConfiguracoesPage() {
     email_alertas: '',
     // Relatorios por email
     emails_relatorio: [] as string[],
-    frequencia_envio: 'Semanal' as 'Semanal' | 'Mensal',
+    envio_semanal_ativo: false,
+    envio_mensal_ativo: false,
     dia_semana_envio: 1,   // 0=Dom, 1=Seg, ... 6=Sab
     dia_mes_envio: 1,
     hora_envio: 8,
-    ultimo_envio_em: null as string | null,
+    ultimo_envio_semanal_em: null as string | null,
+    ultimo_envio_mensal_em: null as string | null,
   })
 
   const carregar = useCallback(async () => {
@@ -46,12 +48,14 @@ export default function ConfiguracoesPage() {
           limite_fornecedor_mes: data.parametros.limite_fornecedor_mes ?? 60000,
           tolerancia_pct:        data.parametros.tolerancia_pct ?? 5,
           email_alertas:         data.parametros.email_alertas ?? '',
-          emails_relatorio:      data.parametros.emails_relatorio ?? [],
-          frequencia_envio:      data.parametros.frequencia_envio ?? 'Semanal',
-          dia_semana_envio:      data.parametros.dia_semana_envio ?? 1,
-          dia_mes_envio:         data.parametros.dia_mes_envio ?? 1,
-          hora_envio:            data.parametros.hora_envio ?? 8,
-          ultimo_envio_em:       data.parametros.ultimo_envio_em ?? null,
+          emails_relatorio:        data.parametros.emails_relatorio ?? [],
+          envio_semanal_ativo:     data.parametros.envio_semanal_ativo ?? false,
+          envio_mensal_ativo:      data.parametros.envio_mensal_ativo ?? false,
+          dia_semana_envio:        data.parametros.dia_semana_envio ?? 1,
+          dia_mes_envio:           data.parametros.dia_mes_envio ?? 1,
+          hora_envio:              data.parametros.hora_envio ?? 8,
+          ultimo_envio_semanal_em: data.parametros.ultimo_envio_semanal_em ?? null,
+          ultimo_envio_mensal_em:  data.parametros.ultimo_envio_mensal_em ?? null,
         })
       }
     }
@@ -74,7 +78,7 @@ export default function ConfiguracoesPage() {
     setParams(p => ({ ...p, emails_relatorio: p.emails_relatorio.filter(e => e !== email) }))
   }
 
-  async function enviarTeste() {
+  async function enviarTeste(freq: 'Semanal' | 'Mensal') {
     if (!params.emails_relatorio.length) {
       setErro('Cadastre pelo menos 1 email antes de testar')
       return
@@ -86,13 +90,13 @@ export default function ConfiguracoesPage() {
       await fetch('/api/alertas/parametros', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ empresa_id: EMPRESA_ID, emails_relatorio: params.emails_relatorio, frequencia_envio: params.frequencia_envio }),
+        body: JSON.stringify({ empresa_id: EMPRESA_ID, emails_relatorio: params.emails_relatorio }),
       })
       // 2. Dispara o envio
       const res = await fetch('/api/relatorio/enviar', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ empresa_id: EMPRESA_ID, frequencia: params.frequencia_envio }),
+        body: JSON.stringify({ empresa_id: EMPRESA_ID, frequencia: freq }),
       })
       const data = await res.json()
       if (res.ok) {
@@ -328,84 +332,97 @@ export default function ConfiguracoesPage() {
             </div>
           </div>
 
-          {/* Quando enviar */}
-          <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid #E8E6E0', padding: '24px', marginBottom: '16px' }}>
-            <h2 style={{ fontSize: '15px', fontWeight: '700', margin: '0 0 20px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              📅 Quando enviar
-            </h2>
-
-            <div style={{ marginBottom: '20px' }}>
-              <label style={{ fontSize: '13px', fontWeight: '600', color: '#444441', display: 'block', marginBottom: '8px' }}>Frequência</label>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-                {[
-                  { v: 'Semanal', label: 'Semanal',  desc: 'Toda semana' },
-                  { v: 'Mensal',  label: 'Mensal',   desc: 'Todo mês' },
-                ].map(o => (
-                  <div key={o.v} onClick={() => setParams(p => ({ ...p, frequencia_envio: o.v as any }))}
-                    style={{ padding: '12px', border: `1.5px solid ${params.frequencia_envio === o.v ? '#185FA5' : '#E2E0D8'}`, borderRadius: '8px', cursor: 'pointer', background: params.frequencia_envio === o.v ? '#F0F8FF' : '#fff', textAlign: 'center' }}>
-                    <div style={{ fontSize: '14px', fontWeight: '500', color: params.frequencia_envio === o.v ? '#0C447C' : '#1A1916' }}>{o.label}</div>
-                    <div style={{ fontSize: '11px', color: '#888' }}>{o.desc}</div>
+          {/* Relatorio SEMANAL */}
+          <div style={{ background: '#fff', borderRadius: '12px', border: `1.5px solid ${params.envio_semanal_ativo ? '#2E7D32' : '#E8E6E0'}`, padding: '24px', marginBottom: '16px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+              <h2 style={{ fontSize: '15px', fontWeight: '700', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                📅 Relatório semanal
+              </h2>
+              <label style={{ position: 'relative', display: 'inline-block', width: '46px', height: '24px', cursor: 'pointer' }}>
+                <input type="checkbox" checked={params.envio_semanal_ativo}
+                  onChange={e => setParams(p => ({ ...p, envio_semanal_ativo: e.target.checked }))}
+                  style={{ opacity: 0, width: 0, height: 0 }} />
+                <span style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: params.envio_semanal_ativo ? '#2E7D32' : '#C8C6C0', borderRadius: '24px', transition: '.2s' }}>
+                  <span style={{ position: 'absolute', height: '18px', width: '18px', left: params.envio_semanal_ativo ? '25px' : '3px', top: '3px', background: '#fff', borderRadius: '50%', transition: '.2s' }} />
+                </span>
+              </label>
+            </div>
+            {params.envio_semanal_ativo && (
+              <>
+                <div style={{ marginBottom: '16px' }}>
+                  <label style={{ fontSize: '13px', fontWeight: '600', color: '#444441', display: 'block', marginBottom: '8px' }}>Dia da semana</label>
+                  <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                    {['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'].map((nome, i) => (
+                      <button type="button" key={i} onClick={() => setParams(p => ({ ...p, dia_semana_envio: i }))}
+                        style={{ flex: 1, minWidth: '54px', padding: '10px 6px', borderRadius: '8px', fontSize: '12px', fontWeight: '500',
+                          border: `1.5px solid ${params.dia_semana_envio === i ? '#185FA5' : '#E2E0D8'}`,
+                          background: params.dia_semana_envio === i ? '#185FA5' : '#fff',
+                          color: params.dia_semana_envio === i ? '#fff' : '#444', cursor: 'pointer' }}>
+                        {nome}
+                      </button>
+                    ))}
                   </div>
-                ))}
-              </div>
-            </div>
-
-            {params.frequencia_envio === 'Semanal' && (
-              <div style={{ marginBottom: '20px' }}>
-                <label style={{ fontSize: '13px', fontWeight: '600', color: '#444441', display: 'block', marginBottom: '8px' }}>Dia da semana</label>
-                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                  {['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'].map((nome, i) => (
-                    <button type="button" key={i} onClick={() => setParams(p => ({ ...p, dia_semana_envio: i }))}
-                      style={{ flex: 1, minWidth: '54px', padding: '10px 6px', borderRadius: '8px', fontSize: '12px', fontWeight: '500',
-                        border: `1.5px solid ${params.dia_semana_envio === i ? '#185FA5' : '#E2E0D8'}`,
-                        background: params.dia_semana_envio === i ? '#185FA5' : '#fff',
-                        color: params.dia_semana_envio === i ? '#fff' : '#444', cursor: 'pointer' }}>
-                      {nome}
-                    </button>
-                  ))}
                 </div>
-              </div>
-            )}
-
-            {params.frequencia_envio === 'Mensal' && (
-              <div style={{ marginBottom: '20px' }}>
-                <label style={{ fontSize: '13px', fontWeight: '600', color: '#444441', display: 'block', marginBottom: '6px' }}>Dia do mês</label>
-                <input type="number" min={1} max={28} value={params.dia_mes_envio}
-                  onChange={e => setParams(p => ({ ...p, dia_mes_envio: Math.max(1, Math.min(28, Number(e.target.value))) }))}
-                  style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #D8D6D0', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }} />
-                <div style={{ fontSize: '11px', color: '#888780', marginTop: '4px' }}>De 1 a 28 (pra cair em todos os meses).</div>
-              </div>
-            )}
-
-            <div>
-              <label style={{ fontSize: '13px', fontWeight: '600', color: '#444441', display: 'block', marginBottom: '6px' }}>Hora de envio (Brasília)</label>
-              <select value={params.hora_envio} onChange={e => setParams(p => ({ ...p, hora_envio: Number(e.target.value) }))}
-                style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #D8D6D0', fontSize: '13px', background: '#fff', outline: 'none' }}>
-                {Array.from({ length: 24 }, (_, h) => (
-                  <option key={h} value={h}>{String(h).padStart(2, '0')}:00</option>
-                ))}
-              </select>
-            </div>
-
-            {params.ultimo_envio_em && (
-              <div style={{ marginTop: '14px', fontSize: '12px', color: '#666' }}>
-                Último envio: {new Date(params.ultimo_envio_em).toLocaleString('pt-BR')}
-              </div>
+                {params.ultimo_envio_semanal_em && (
+                  <div style={{ fontSize: '12px', color: '#666', marginBottom: '12px' }}>
+                    Último envio semanal: {new Date(params.ultimo_envio_semanal_em).toLocaleString('pt-BR')}
+                  </div>
+                )}
+                <button type="button" onClick={() => enviarTeste('Semanal')} disabled={enviandoTeste || params.emails_relatorio.length === 0}
+                  style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1.5px solid #2E7D32', background: '#fff', color: '#2E7D32', fontSize: '12px', fontWeight: '600', cursor: enviandoTeste || params.emails_relatorio.length === 0 ? 'not-allowed' : 'pointer', opacity: params.emails_relatorio.length === 0 ? 0.5 : 1 }}>
+                  {enviandoTeste ? '📨 Enviando…' : '🧪 Testar relatório semanal agora'}
+                </button>
+              </>
             )}
           </div>
 
-          {/* Botão de teste */}
-          <div style={{ background: '#FFF7E0', borderRadius: '12px', border: '1px solid #F0D080', padding: '20px', marginBottom: '16px' }}>
-            <h2 style={{ fontSize: '14px', fontWeight: '600', margin: '0 0 8px', color: '#6B4500' }}>
-              🧪 Testar agora
-            </h2>
-            <p style={{ fontSize: '12px', color: '#7A5900', margin: '0 0 14px', lineHeight: '1.5' }}>
-              Envia o relatório <b>imediatamente</b> para os {params.emails_relatorio.length} email(s) cadastrado(s), com dados dos últimos {params.frequencia_envio === 'Mensal' ? '30 dias' : '7 dias'}. Útil pra você ver como fica antes de deixar automático.
-            </p>
-            <button type="button" onClick={enviarTeste} disabled={enviandoTeste || params.emails_relatorio.length === 0}
-              style={{ width: '100%', padding: '11px', borderRadius: '8px', border: 'none', background: enviandoTeste ? '#85B7EB' : '#185FA5', color: '#fff', fontSize: '13px', fontWeight: '500', cursor: enviandoTeste || params.emails_relatorio.length === 0 ? 'not-allowed' : 'pointer', opacity: params.emails_relatorio.length === 0 ? 0.5 : 1 }}>
-              {enviandoTeste ? '📨 Enviando…' : '📨 Enviar relatório de teste agora'}
-            </button>
+          {/* Relatorio MENSAL */}
+          <div style={{ background: '#fff', borderRadius: '12px', border: `1.5px solid ${params.envio_mensal_ativo ? '#185FA5' : '#E8E6E0'}`, padding: '24px', marginBottom: '16px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+              <h2 style={{ fontSize: '15px', fontWeight: '700', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                📆 Relatório mensal
+              </h2>
+              <label style={{ position: 'relative', display: 'inline-block', width: '46px', height: '24px', cursor: 'pointer' }}>
+                <input type="checkbox" checked={params.envio_mensal_ativo}
+                  onChange={e => setParams(p => ({ ...p, envio_mensal_ativo: e.target.checked }))}
+                  style={{ opacity: 0, width: 0, height: 0 }} />
+                <span style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: params.envio_mensal_ativo ? '#185FA5' : '#C8C6C0', borderRadius: '24px', transition: '.2s' }}>
+                  <span style={{ position: 'absolute', height: '18px', width: '18px', left: params.envio_mensal_ativo ? '25px' : '3px', top: '3px', background: '#fff', borderRadius: '50%', transition: '.2s' }} />
+                </span>
+              </label>
+            </div>
+            {params.envio_mensal_ativo && (
+              <>
+                <div style={{ marginBottom: '16px' }}>
+                  <label style={{ fontSize: '13px', fontWeight: '600', color: '#444441', display: 'block', marginBottom: '6px' }}>Dia do mês</label>
+                  <input type="number" min={1} max={28} value={params.dia_mes_envio}
+                    onChange={e => setParams(p => ({ ...p, dia_mes_envio: Math.max(1, Math.min(28, Number(e.target.value))) }))}
+                    style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #D8D6D0', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }} />
+                  <div style={{ fontSize: '11px', color: '#888780', marginTop: '4px' }}>De 1 a 28 (cobre o mês fechado anterior).</div>
+                </div>
+                {params.ultimo_envio_mensal_em && (
+                  <div style={{ fontSize: '12px', color: '#666', marginBottom: '12px' }}>
+                    Último envio mensal: {new Date(params.ultimo_envio_mensal_em).toLocaleString('pt-BR')}
+                  </div>
+                )}
+                <button type="button" onClick={() => enviarTeste('Mensal')} disabled={enviandoTeste || params.emails_relatorio.length === 0}
+                  style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1.5px solid #185FA5', background: '#fff', color: '#185FA5', fontSize: '12px', fontWeight: '600', cursor: enviandoTeste || params.emails_relatorio.length === 0 ? 'not-allowed' : 'pointer', opacity: params.emails_relatorio.length === 0 ? 0.5 : 1 }}>
+                  {enviandoTeste ? '📨 Enviando…' : '🧪 Testar relatório mensal agora'}
+                </button>
+              </>
+            )}
+          </div>
+
+          {/* Hora de envio (comum aos dois) */}
+          <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid #E8E6E0', padding: '24px', marginBottom: '16px' }}>
+            <label style={{ fontSize: '13px', fontWeight: '600', color: '#444441', display: 'block', marginBottom: '6px' }}>⏰ Hora de envio (Brasília)</label>
+            <select value={params.hora_envio} onChange={e => setParams(p => ({ ...p, hora_envio: Number(e.target.value) }))}
+              style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #D8D6D0', fontSize: '13px', background: '#fff', outline: 'none' }}>
+              {Array.from({ length: 24 }, (_, h) => (
+                <option key={h} value={h}>{String(h).padStart(2, '0')}:00</option>
+              ))}
+            </select>
+            <div style={{ fontSize: '11px', color: '#888780', marginTop: '6px' }}>Hora que o cron vai disparar os relatórios ativos.</div>
           </div>
           </>
         )}

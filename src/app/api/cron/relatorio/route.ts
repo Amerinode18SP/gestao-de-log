@@ -27,10 +27,10 @@ export async function GET(req: NextRequest) {
 
   const supabase = createSupabaseAdmin()
 
-  // Busca empresas com config de envio
+  // Busca empresas com config de envio (toggles independentes semanal/mensal)
   const { data: empresas, error } = await supabase
     .from('parametros_alerta')
-    .select('empresa_id, emails_relatorio, frequencia_envio, dia_semana_envio, dia_mes_envio, hora_envio, ultimo_envio_em')
+    .select('empresa_id, emails_relatorio, envio_semanal_ativo, envio_mensal_ativo, dia_semana_envio, dia_mes_envio, hora_envio, ultimo_envio_semanal_em, ultimo_envio_mensal_em')
 
   if (error) {
     console.error('[cron/relatorio] erro buscar parametros:', error)
@@ -38,50 +38,64 @@ export async function GET(req: NextRequest) {
   }
 
   const resultados: any[] = []
+  const hojeBrtStr = agoraBrt.toISOString().slice(0, 10)
 
-  for (const cfg of (empresas ?? [])) {
-    const emails = cfg.emails_relatorio ?? []
-    if (!emails.length) continue                                 // sem destinatarios
-
-    // Match de dia + hora
-    const horaConf = cfg.hora_envio ?? 8
-    if (horaBrt !== horaConf) continue                            // hora errada
-
-    let agendado = false
-    if (cfg.frequencia_envio === 'Mensal') {
-      agendado = diaMes === (cfg.dia_mes_envio ?? 1)
-    } else {
-      // Semanal (default)
-      agendado = diaSemana === (cfg.dia_semana_envio ?? 1)
-    }
-    if (!agendado) continue
-
-    // Evita re-envio se ja foi enviado hoje (proteção contra cron disparar 2x)
-    if (cfg.ultimo_envio_em) {
-      const ultimoBrt = new Date(new Date(cfg.ultimo_envio_em).getTime() + offsetBrt)
-      if (ultimoBrt.toISOString().slice(0, 10) === agoraBrt.toISOString().slice(0, 10)) {
-        resultados.push({ empresa_id: cfg.empresa_id, ja_enviado_hoje: true })
-        continue
-      }
-    }
-
-    // Dispara envio
+  // Helper: dispara o relatorio pra uma empresa+frequencia
+  async function disparar(empresa_id: string, freq: 'Semanal' | 'Mensal', emails: string[]) {
     try {
       const r = await fetch(`${APP_URL}/api/relatorio/enviar`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ empresa_id: cfg.empresa_id, frequencia: cfg.frequencia_envio }),
+        body: JSON.stringify({ empresa_id, frequencia: freq }),
       })
       const data = await r.json()
+      // Marca ultimo envio da frequencia correspondente
+      const campoUltimoEnvio = freq === 'Mensal' ? 'ultimo_envio_mensal_em' : 'ultimo_envio_semanal_em'
+      await supabase
+        .from('parametros_alerta')
+        .update({ [campoUltimoEnvio]: new Date().toISOString() })
+        .eq('empresa_id', empresa_id)
       resultados.push({
-        empresa_id: cfg.empresa_id,
-        ok: r.ok,
+        empresa_id, frequencia: freq, ok: r.ok,
         enviados: (data.destinatarios ?? []).filter((d: any) => d.sent).length,
         total_destinatarios: emails.length,
         erro: r.ok ? undefined : data?.error,
       })
     } catch (e: any) {
-      resultados.push({ empresa_id: cfg.empresa_id, ok: false, erro: e?.message })
+      resultados.push({ empresa_id, frequencia: freq, ok: false, erro: e?.message })
+    }
+  }
+
+  // Helper: ja enviou esta frequencia hoje?
+  function jaEnviadoHoje(ts: string | null) {
+    if (!ts) return false
+    const ultimoBrt = new Date(new Date(ts).getTime() + offsetBrt)
+    return ultimoBrt.toISOString().slice(0, 10) === hojeBrtStr
+  }
+
+  for (const cfg of (empresas ?? [])) {
+    const emails = cfg.emails_relatorio ?? []
+    if (!emails.length) continue
+
+    const horaConf = cfg.hora_envio ?? 8
+    if (horaBrt !== horaConf) continue
+
+    // --- SEMANAL ---
+    if (cfg.envio_semanal_ativo && diaSemana === (cfg.dia_semana_envio ?? 1)) {
+      if (jaEnviadoHoje(cfg.ultimo_envio_semanal_em)) {
+        resultados.push({ empresa_id: cfg.empresa_id, frequencia: 'Semanal', ja_enviado_hoje: true })
+      } else {
+        await disparar(cfg.empresa_id, 'Semanal', emails)
+      }
+    }
+
+    // --- MENSAL --- (pode rodar no MESMO dia se ambos coincidirem)
+    if (cfg.envio_mensal_ativo && diaMes === (cfg.dia_mes_envio ?? 1)) {
+      if (jaEnviadoHoje(cfg.ultimo_envio_mensal_em)) {
+        resultados.push({ empresa_id: cfg.empresa_id, frequencia: 'Mensal', ja_enviado_hoje: true })
+      } else {
+        await disparar(cfg.empresa_id, 'Mensal', emails)
+      }
     }
   }
 

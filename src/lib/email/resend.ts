@@ -164,8 +164,10 @@ interface RelatorioParams {
   totalCtes: number
   ticketMedio: number
   tipoPeriodo: 'Semanal' | 'Mensal'
-  labelMesAtual: string                                            // ex: "jun/26 até hoje"
+  labelPrimeiroCard: string                                        // ex: "Esta semana" | "Maio/2026 (este mês)"
+  labelMesAtual: string                                            // ex: "jun/26 até hoje" | "Abril/2026 (mês anterior)"
   labelAno: string                                                 // ex: "2026 até hoje"
+  tituloEvolucao: string                                           // ex: "CT-e por dia da semana" | "CT-e por semana"
   gastosAnual: { label: string; valor: number }[]
   porDiaSemana: { label: string; valor: number }[]
   mesAtualLabel: string
@@ -247,7 +249,7 @@ export function templateRelatorio(p: RelatorioParams) {
         <tr><td style="padding:20px 22px 4px">
           <div style="font-size:11px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">📊 Comparativo</div>
           <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%"><tr>
-            ${kpiCard(p.tipoPeriodo === 'Semanal' ? 'Esta semana' : 'Este mês', fmtR(p.totalGasto), '#2E7D32')}
+            ${kpiCard(p.labelPrimeiroCard, fmtR(p.totalGasto), '#2E7D32')}
             ${kpiCard(p.labelMesAtual, fmtR(p.totalMesAtual), '#185FA5')}
             ${kpiCard(p.labelAno, fmtR(p.totalAno), '#0C447C')}
           </tr></table>
@@ -255,7 +257,7 @@ export function templateRelatorio(p: RelatorioParams) {
 
         <!-- KPIs detalhe do periodo -->
         <tr><td style="padding:8px 22px 12px">
-          <div style="font-size:11px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">📋 Detalhes do período</div>
+          <div style="font-size:11px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">📋 Detalhes anual</div>
           <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%"><tr>
             ${kpiCard('CT-e emitidas', String(p.totalCtes), '#1A1916')}
             ${kpiCard('Ticket médio', fmtR(p.ticketMedio), '#E65100')}
@@ -278,8 +280,8 @@ export function templateRelatorio(p: RelatorioParams) {
         ${p.porDiaSemana.length ? `
         <tr><td style="padding:8px 28px 18px">
           <div style="background:#FAFAF8;padding:18px;border:1px solid #E8E6E0;border-radius:8px">
-            <div style="font-size:13px;font-weight:600;color:#1A1916;margin-bottom:4px">CT-e por dia da semana</div>
-            <div style="font-size:11px;color:#888;margin-bottom:14px">${escapeHtml(p.mesAtualLabel)} — só dias úteis</div>
+            <div style="font-size:13px;font-weight:600;color:#1A1916;margin-bottom:4px">${escapeHtml(p.tituloEvolucao)}</div>
+            <div style="font-size:11px;color:#888;margin-bottom:14px">${escapeHtml(p.mesAtualLabel)}</div>
             <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%"><tr>
               ${p.porDiaSemana.map(d => colunaBarra(d.label, d.valor, maxDia, p.porDiaSemana.length, '#2E7D32')).join('')}
             </tr></table>

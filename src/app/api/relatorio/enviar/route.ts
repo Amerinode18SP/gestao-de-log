@@ -247,13 +247,6 @@ export async function POST(req: NextRequest) {
       periodo: { inicio: iniStr, fim: hojeStr, freq },
       total_kpi: totalGasto,
       destinatarios: resultados,
-      _debug: {
-        amostra_ctes: (ctes ?? []).slice(0, 5).map((c: any) => ({
-          id: c.id, data_emissao: c.data_emissao, valor_servico: c.valor_servico
-        })),
-        por_dia_semana_calculado: porDiaSemana,
-        total_ctes_periodo: ctes?.length ?? 0,
-      },
     })
   } catch (e: any) {
     console.error('[relatorio/enviar]', e)

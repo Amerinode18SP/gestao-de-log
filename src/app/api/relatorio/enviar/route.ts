@@ -150,6 +150,7 @@ export async function POST(req: NextRequest) {
     //   Mensal:  "Mes anterior" ao mes do relatorio (ex: relat Maio -> card Abril)
     let totalSegundoCard: number
     let labelSegundoCard: string
+    let ctesMesAtualParaGrafico: any[] = []  // pego no ramo semanal pra reusar no grafico
     if (freq === 'Mensal') {
       // Mes anterior ao mes do relatorio (ini = primeiro dia do mes do relat).
       const iniMesAnt = new Date(ini.getFullYear(), ini.getMonth() - 1, 1)
@@ -169,11 +170,11 @@ export async function POST(req: NextRequest) {
       totalSegundoCard = ctesMesAnt.reduce((s: number, r: any) => s + (r.valor_servico ?? 0), 0)
       labelSegundoCard = `${nomesMesLong[iniMesAnt.getMonth()]}/${iniMesAnt.getFullYear()} (mês anterior)`
     } else {
-      // Semanal: mes atual ate hoje
+      // Semanal: mes atual ate hoje (TAMBEM usado pra gerar grafico semanas-do-mes)
       const inicioMesAtual = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, '0')}-01`
-      const ctesMesAtual = await fetchAll<any>((f, t) => supabase
+      ctesMesAtualParaGrafico = await fetchAll<any>((f, t) => supabase
         .from('ctes')
-        .select('valor_servico')
+        .select('valor_servico, data_emissao')
         .eq('empresa_id', empresa_id)
         .not('chave_acesso', 'is', null)
         .not('chave_acesso', 'ilike', 'omie-%')
@@ -181,7 +182,7 @@ export async function POST(req: NextRequest) {
         .gte('data_emissao', inicioMesAtual)
         .lte('data_emissao', hojeStr)
         .range(f, t))
-      totalSegundoCard = ctesMesAtual.reduce((s: number, r: any) => s + (r.valor_servico ?? 0), 0)
+      totalSegundoCard = ctesMesAtualParaGrafico.reduce((s: number, r: any) => s + (r.valor_servico ?? 0), 0)
       labelSegundoCard = `${nomesMesCurto[hoje.getMonth()]}/${String(hoje.getFullYear()).slice(2)} até hoje`
     }
 
@@ -189,6 +190,44 @@ export async function POST(req: NextRequest) {
     const labelPrimeiroCard = freq === 'Mensal'
       ? `${nomesMesLong[ini.getMonth()]}/${ini.getFullYear()} (este mês)`
       : 'Esta semana'
+
+    // Helper: agrupa CTes em buckets de semana do mes (1-7, 8-14, 15-21, 22-28, 29-fim).
+    function bucketsPorSemanaDoMes(ctesArr: any[], anoMes: { ano: number; mes: number }) {
+      const ultimoDiaMes = new Date(anoMes.ano, anoMes.mes + 1, 0).getDate()
+      const mmStr = String(anoMes.mes + 1).padStart(2, '0')
+      const buckets = [
+        { ini: 1,  fim: 7  },
+        { ini: 8,  fim: 14 },
+        { ini: 15, fim: 21 },
+        { ini: 22, fim: 28 },
+        { ini: 29, fim: ultimoDiaMes },
+      ]
+      const result: { label: string; valor: number }[] = []
+      buckets.forEach((b, idx) => {
+        if (b.ini > ultimoDiaMes) return
+        const fimReal = Math.min(b.fim, ultimoDiaMes)
+        const total = (ctesArr ?? [])
+          .filter((r: any) => {
+            const dia = parseInt(String(r.data_emissao).slice(8, 10), 10)
+            return dia >= b.ini && dia <= fimReal
+          })
+          .reduce((s: number, r: any) => s + (r.valor_servico ?? 0), 0)
+        result.push({
+          label: `Sem ${idx + 1} (${String(b.ini).padStart(2, '0')}-${String(fimReal).padStart(2, '0')}/${mmStr})`,
+          valor: total,
+        })
+      })
+      return result
+    }
+
+    // 6.1. SEMANAL extra: grafico "CT-e por semana" — semanas do mes atual.
+    //      So aplica pro relatorio semanal (no mensal isso ja vira o grafico principal).
+    let porSemanaDoMes: { label: string; valor: number }[] = []
+    let porSemanaDoMesLabel = ''
+    if (freq === 'Semanal') {
+      porSemanaDoMes = bucketsPorSemanaDoMes(ctesMesAtualParaGrafico, { ano: hoje.getFullYear(), mes: hoje.getMonth() })
+      porSemanaDoMesLabel = `${nomesMesLong[hoje.getMonth()]}/${hoje.getFullYear()} — semanas do mês atual`
+    }
 
     // 6. Distribuição EVOLUÇÃO TEMPORAL
     //    Semanal: gasto por dia da semana (Seg-Sex, datas exatas).
@@ -257,6 +296,8 @@ export async function POST(req: NextRequest) {
       labelAno: `${hoje.getFullYear()} até hoje`,
       tituloEvolucao,
       gastosAnual,
+      porSemanaDoMes,
+      porSemanaDoMesLabel,
       porDiaSemana,
       mesAtualLabel: diaSemanaLabel,
       porTransportadora,

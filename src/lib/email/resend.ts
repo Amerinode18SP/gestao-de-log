@@ -169,6 +169,8 @@ interface RelatorioParams {
   labelAno: string                                                 // ex: "2026 até hoje"
   tituloEvolucao: string                                           // ex: "CT-e por dia da semana" | "CT-e por semana"
   gastosAnual: { label: string; valor: number }[]
+  porSemanaDoMes?: { label: string; valor: number }[]              // SO semanal: grafico extra de semanas do mes atual
+  porSemanaDoMesLabel?: string
   porDiaSemana: { label: string; valor: number }[]
   mesAtualLabel: string
   porTransportadora: { nome: string; valor: number; ctes: number }[]
@@ -276,7 +278,19 @@ export function templateRelatorio(p: RelatorioParams) {
           </div>
         </td></tr>` : ''}
 
-        <!-- Gráfico POR DIA DA SEMANA (mes atual) -->
+        <!-- Gráfico POR SEMANA DO MES (so no semanal — mensal ja agrupa por semana no grafico principal) -->
+        ${p.porSemanaDoMes && p.porSemanaDoMes.length ? `
+        <tr><td style="padding:8px 28px 18px">
+          <div style="background:#FAFAF8;padding:18px;border:1px solid #E8E6E0;border-radius:8px">
+            <div style="font-size:13px;font-weight:600;color:#1A1916;margin-bottom:4px">CT-e por semana</div>
+            <div style="font-size:11px;color:#888;margin-bottom:14px">${escapeHtml(p.porSemanaDoMesLabel ?? '')}</div>
+            <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%"><tr>
+              ${p.porSemanaDoMes.map(d => colunaBarra(d.label, d.valor, Math.max(...p.porSemanaDoMes!.map(x => x.valor), 1), p.porSemanaDoMes!.length, '#0C447C')).join('')}
+            </tr></table>
+          </div>
+        </td></tr>` : ''}
+
+        <!-- Gráfico POR DIA DA SEMANA / POR SEMANA (depende do tipo) -->
         ${p.porDiaSemana.length ? `
         <tr><td style="padding:8px 28px 18px">
           <div style="background:#FAFAF8;padding:18px;border:1px solid #E8E6E0;border-radius:8px">

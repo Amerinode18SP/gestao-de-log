@@ -83,7 +83,7 @@ export async function POST(req: NextRequest) {
     // 4. Dados do período (KPIs e ranking)
     const ctes = await fetchAll<any>((f, t) => supabase
       .from('ctes')
-      .select('id, status, valor_servico, fornecedor_id, centro_custo_id, centro_custo_nome, fornecedor:fornecedores(nome), centro_custo:centros_custo(nome)')
+      .select('id, status, valor_servico, data_emissao, fornecedor_id, centro_custo_id, centro_custo_nome, fornecedor:fornecedores(nome), centro_custo:centros_custo(nome)')
       .eq('empresa_id', empresa_id)
       .not('chave_acesso', 'is', null)
       .not('chave_acesso', 'ilike', 'omie-%')
@@ -170,7 +170,7 @@ export async function POST(req: NextRequest) {
         const dia = new Date(ini); dia.setDate(ini.getDate() + i)
         const diaStr = dia.toISOString().slice(0, 10)
         const total = ctesSemana
-          .filter((r: any) => r.data_emissao === diaStr)
+          .filter((r: any) => String(r.data_emissao).slice(0, 10) === diaStr)
           .reduce((s: number, r: any) => s + (r.valor_servico ?? 0), 0)
         const dd = String(dia.getDate()).padStart(2, '0')
         const mm = String(dia.getMonth() + 1).padStart(2, '0')

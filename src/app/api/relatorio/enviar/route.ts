@@ -137,10 +137,23 @@ export async function POST(req: NextRequest) {
         .reduce((s, r: any) => s + (r.valor_servico ?? 0), 0)
       gastosAnual.push({ label: `${nomesMes[m]}/${String(hoje.getFullYear()).slice(2)}`, valor: total })
     }
+    const totalAno = gastosAnual.reduce((s, m) => s + m.valor, 0)
     const mesesAtivos = gastosAnual.filter(m => m.valor > 0).length
-    const mediaMensal = mesesAtivos > 0
-      ? gastosAnual.reduce((s, m) => s + m.valor, 0) / mesesAtivos
-      : 0
+    const mediaMensal = mesesAtivos > 0 ? totalAno / mesesAtivos : 0
+
+    // 4.5. Mes até hoje (mes atual de 01 até hoje)
+    const inicioMesAtual = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, '0')}-01`
+    const ctesMesAtual = await fetchAll<any>((f, t) => supabase
+      .from('ctes')
+      .select('valor_servico')
+      .eq('empresa_id', empresa_id)
+      .not('chave_acesso', 'is', null)
+      .not('chave_acesso', 'ilike', 'omie-%')
+      .neq('status', 'Cancelado')
+      .gte('data_emissao', inicioMesAtual)
+      .lte('data_emissao', hojeStr)
+      .range(f, t))
+    const totalMesAtual = ctesMesAtual.reduce((s: number, r: any) => s + (r.valor_servico ?? 0), 0)
 
     // 6. Distribuição POR DIA DA SEMANA
     //    Semanal: dias EXATOS da semana do relatorio (seg 25/05, ter 26/05...).
@@ -190,13 +203,19 @@ export async function POST(req: NextRequest) {
       diaSemanaLabel = `Últimos 30 dias`
     }
 
-    // 6. Renderiza template visual
+    // 7. Renderiza template visual
+    const nomesMesCurto = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez']
     const html = templateRelatorio({
       periodoLabel,
       totalGasto,
+      totalMesAtual,
+      totalAno,
       mediaMensal,
       totalCtes: qtd,
       ticketMedio,
+      tipoPeriodo: freq,
+      labelMesAtual: `${nomesMesCurto[hoje.getMonth()]}/${String(hoje.getFullYear()).slice(2)} até hoje`,
+      labelAno: `${hoje.getFullYear()} até hoje`,
       gastosAnual,
       porDiaSemana,
       mesAtualLabel: diaSemanaLabel,

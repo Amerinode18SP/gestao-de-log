@@ -157,12 +157,17 @@ function escapeHtml(s: string) {
 // ============================================================
 interface RelatorioParams {
   periodoLabel: string
-  totalGasto: number
+  totalGasto: number                                               // periodo (semana ou mes)
+  totalMesAtual: number                                            // mes atual de 01 ate hoje
+  totalAno: number                                                 // ano corrente ate hoje
   mediaMensal: number
   totalCtes: number
   ticketMedio: number
-  gastosAnual: { label: string; valor: number }[]                  // jan ate mes atual
-  porDiaSemana: { label: string; valor: number }[]                 // seg-sex do mes atual
+  tipoPeriodo: 'Semanal' | 'Mensal'
+  labelMesAtual: string                                            // ex: "jun/26 até hoje"
+  labelAno: string                                                 // ex: "2026 até hoje"
+  gastosAnual: { label: string; valor: number }[]
+  porDiaSemana: { label: string; valor: number }[]
   mesAtualLabel: string
   porTransportadora: { nome: string; valor: number; ctes: number }[]
   porCentroCusto: { nome: string; valor: number }[]
@@ -174,11 +179,11 @@ const fmtN = (v: number) => Number(v||0).toLocaleString('pt-BR', { minimumFracti
 // Card de KPI em estilo de tabela (compatível com qualquer email client)
 function kpiCard(label: string, valor: string, cor: string) {
   return `
-    <td style="padding:0 6px 12px 0;vertical-align:top" width="25%">
+    <td style="padding:0 4px 0 0;vertical-align:top" width="33%">
       <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:#fff;border:1px solid #E2E0D8;border-radius:8px">
         <tr><td style="padding:12px 14px">
-          <div style="font-size:11px;color:#666;margin-bottom:4px">${escapeHtml(label)}</div>
-          <div style="font-size:18px;font-weight:700;color:${cor}">${escapeHtml(valor)}</div>
+          <div style="font-size:10px;color:#666;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escapeHtml(label)}</div>
+          <div style="font-size:17px;font-weight:700;color:${cor}">${escapeHtml(valor)}</div>
         </td></tr>
       </table>
     </td>`
@@ -238,13 +243,23 @@ export function templateRelatorio(p: RelatorioParams) {
           <div style="color:#fff;font-size:18px;font-weight:600;margin-top:4px">Gestão de Log — Amerinode</div>
         </td></tr>
 
-        <!-- KPIs em 4 cards -->
-        <tr><td style="padding:20px 22px 8px">
+        <!-- KPIs comparativo: SEMANA/MES/ANO -->
+        <tr><td style="padding:20px 22px 4px">
+          <div style="font-size:11px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">📊 Comparativo</div>
           <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%"><tr>
-            ${kpiCard('Total gasto',  fmtR(p.totalGasto),  '#2E7D32')}
-            ${kpiCard('Média mensal', fmtR(p.mediaMensal), '#185FA5')}
+            ${kpiCard(p.tipoPeriodo === 'Semanal' ? 'Esta semana' : 'Este mês', fmtR(p.totalGasto), '#2E7D32')}
+            ${kpiCard(p.labelMesAtual, fmtR(p.totalMesAtual), '#185FA5')}
+            ${kpiCard(p.labelAno, fmtR(p.totalAno), '#0C447C')}
+          </tr></table>
+        </td></tr>
+
+        <!-- KPIs detalhe do periodo -->
+        <tr><td style="padding:8px 22px 12px">
+          <div style="font-size:11px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">📋 Detalhes do período</div>
+          <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%"><tr>
             ${kpiCard('CT-e emitidas', String(p.totalCtes), '#1A1916')}
             ${kpiCard('Ticket médio', fmtR(p.ticketMedio), '#E65100')}
+            ${kpiCard('Média mensal (ano)', fmtR(p.mediaMensal), '#666666')}
           </tr></table>
         </td></tr>
 

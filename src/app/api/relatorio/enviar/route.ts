@@ -57,7 +57,8 @@ export async function POST(req: NextRequest) {
       ini = new Date(fim); ini.setDate(fim.getDate() - 6)  // segunda da mesma semana = domingo - 6
     }
     const iniStr = ini.toISOString().slice(0, 10)
-    const hojeStr = fim.toISOString().slice(0, 10)
+    const fimStr = fim.toISOString().slice(0, 10)  // FIM do periodo do relatorio
+    const hojeStr = hoje.toISOString().slice(0, 10)  // HOJE de verdade (pra grafico mes atual)
     const periodoLabel = freq === 'Mensal'
       ? `Relatório mensal — ${fmtBR(ini)} a ${fmtBR(fim)}`
       : `Relatório semanal — ${fmtBR(ini)} a ${fmtBR(fim)}`
@@ -90,7 +91,7 @@ export async function POST(req: NextRequest) {
       .not('chave_acesso', 'ilike', 'omie-%')
       .neq('status', 'Cancelado')
       .gte('data_emissao', iniStr)
-      .lte('data_emissao', hojeStr)
+      .lte('data_emissao', fimStr)
       .range(f, t))
 
     const totalGasto = (ctes ?? []).reduce((s, c: any) => s + (c.valor_servico ?? 0), 0)
@@ -326,7 +327,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       ok: true,
-      periodo: { inicio: iniStr, fim: hojeStr, freq },
+      periodo: { inicio: iniStr, fim: fimStr, freq },
       total_kpi: totalGasto,
       destinatarios: resultados,
     })

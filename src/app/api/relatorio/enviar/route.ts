@@ -66,7 +66,7 @@ export async function POST(req: NextRequest) {
     //      - chave_acesso real (nao null, nao 'omie-X')
     //      - tudo EXCETO Cancelado
     //    Pagina ate 20k linhas pra nunca truncar.
-    async function fetchAll<T>(queryFn: (from: number, to: number) => Promise<{ data: T[] | null }>) {
+    async function fetchAll<T>(queryFn: (from: number, to: number) => PromiseLike<{ data: T[] | null }>) {
       const PAGE = 1000
       const acc: T[] = []
       let from = 0

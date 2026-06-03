@@ -34,7 +34,8 @@ export async function GET(req: NextRequest) {
 
   // Helper: pagina queries pra ultrapassar o limit de 1000 do Supabase
   // (sem isso o dashboard mostrava valores cortados — bug!).
-  async function fetchAll<T>(queryFn: (from: number, to: number) => Promise<{ data: T[] | null }>) {
+  // PromiseLike pra aceitar o PostgrestFilterBuilder (thenable) sem coerção.
+  async function fetchAll<T>(queryFn: (from: number, to: number) => PromiseLike<{ data: T[] | null }>) {
     const PAGE = 1000
     const acc: T[] = []
     let from = 0

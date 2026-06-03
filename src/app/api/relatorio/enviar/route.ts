@@ -142,30 +142,52 @@ export async function POST(req: NextRequest) {
       ? gastosAnual.reduce((s, m) => s + m.valor, 0) / mesesAtivos
       : 0
 
-    // 6. Distribuição POR DIA DA SEMANA — últimos 30 dias
-    const inicio30d = new Date(hoje.getTime() - 30 * 24 * 60 * 60 * 1000)
-    const inicio30dStr = inicio30d.toISOString().slice(0, 10)
-    const ctesUltimos30 = await fetchAll<any>((f, t) => supabase
-      .from('ctes')
-      .select('valor_servico, data_emissao')
-      .eq('empresa_id', empresa_id)
-      .not('chave_acesso', 'is', null)
-      .not('chave_acesso', 'ilike', 'omie-%')
-      .neq('status', 'Cancelado')
-      .gte('data_emissao', inicio30dStr)
-      .lte('data_emissao', hojeStr)
-      .range(f, t))
-
+    // 6. Distribuição POR DIA DA SEMANA
+    //    Semanal: dias EXATOS da semana do relatorio (seg 25/05, ter 26/05...).
+    //    Mensal:  agregado dos ultimos 30 dias (todas as segundas, etc).
     const nomesDia = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
     const porDiaSemana: { label: string; valor: number }[] = []
-    for (let d = 1; d <= 5; d++) {  // segunda (1) a sexta (5) — comercial
-      let total = 0
-      ;(ctesUltimos30 ?? []).forEach((r: any) => {
-        if (!r.data_emissao) return
-        const dt = new Date(r.data_emissao + 'T12:00:00')   // meio-dia evita borda timezone
-        if (dt.getDay() === d) total += r.valor_servico ?? 0
-      })
-      porDiaSemana.push({ label: nomesDia[d], valor: total })
+    let diaSemanaLabel = ''
+
+    if (freq === 'Semanal') {
+      // Usa os 7 dias da semana fechada do relatorio (ini=seg, fim=dom)
+      // e mostra Seg a Sex (5 dias uteis).
+      const ctesSemana = ctes ?? []
+      for (let i = 0; i < 5; i++) {  // Seg=0, Ter=1, ... Sex=4
+        const dia = new Date(ini); dia.setDate(ini.getDate() + i)
+        const diaStr = dia.toISOString().slice(0, 10)
+        const total = ctesSemana
+          .filter((r: any) => r.data_emissao === diaStr)
+          .reduce((s: number, r: any) => s + (r.valor_servico ?? 0), 0)
+        const dd = String(dia.getDate()).padStart(2, '0')
+        const mm = String(dia.getMonth() + 1).padStart(2, '0')
+        porDiaSemana.push({ label: `${nomesDia[i + 1]} ${dd}/${mm}`, valor: total })
+      }
+      diaSemanaLabel = `Semana ${fmtBR(ini)} a ${fmtBR(fim)}`
+    } else {
+      // Mensal: agrega ultimos 30 dias por dia da semana
+      const inicio30d = new Date(hoje.getTime() - 30 * 24 * 60 * 60 * 1000)
+      const inicio30dStr = inicio30d.toISOString().slice(0, 10)
+      const ctesUltimos30 = await fetchAll<any>((f, t) => supabase
+        .from('ctes')
+        .select('valor_servico, data_emissao')
+        .eq('empresa_id', empresa_id)
+        .not('chave_acesso', 'is', null)
+        .not('chave_acesso', 'ilike', 'omie-%')
+        .neq('status', 'Cancelado')
+        .gte('data_emissao', inicio30dStr)
+        .lte('data_emissao', hojeStr)
+        .range(f, t))
+      for (let d = 1; d <= 5; d++) {
+        let total = 0
+        ;(ctesUltimos30 ?? []).forEach((r: any) => {
+          if (!r.data_emissao) return
+          const dt = new Date(r.data_emissao + 'T12:00:00')
+          if (dt.getDay() === d) total += r.valor_servico ?? 0
+        })
+        porDiaSemana.push({ label: nomesDia[d], valor: total })
+      }
+      diaSemanaLabel = `Últimos 30 dias`
     }
 
     // 6. Renderiza template visual
@@ -177,7 +199,7 @@ export async function POST(req: NextRequest) {
       ticketMedio,
       gastosAnual,
       porDiaSemana,
-      mesAtualLabel: `últimos 30 dias`,
+      mesAtualLabel: diaSemanaLabel,
       porTransportadora,
       porCentroCusto,
     })

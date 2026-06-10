@@ -71,6 +71,12 @@ export async function syncCtes(
 
     const existentesMap = new Map(existentes?.map(c => [c.omie_id, c]) ?? [])
 
+    // Indexa tambem por chave_acesso, que e' a chave real usada no upsert
+    // (onConflict). E' por ela que precisamos preservar os campos do XML.
+    const existentesPorChave = new Map(
+      existentes?.filter(c => c.chave_acesso).map(c => [c.chave_acesso, c]) ?? []
+    )
+
     const MAX_PAGINAS_POR_LOTE = 20
     const fimLote = paginaFim ?? paginaInicio + MAX_PAGINAS_POR_LOTE - 1
 
@@ -167,25 +173,31 @@ export async function syncCtes(
         // pra CTes novas (existentes ja tem id, mantemos).
         const base = OmieClient.normalizar(raw, empresaId, fornecedorId, centroCustoId)
 
+        // Chave real que sera usada no conflito do upsert. Se o Omie nao
+        // mandou chave (viraria 'omie-*') mas o registro ja existe, mantem
+        // a chave real do banco pra nao criar duplicata.
+        const chaveFinal = base.chave_acesso?.startsWith('omie-')
+          ? (existente?.chave_acesso ?? base.chave_acesso)
+          : base.chave_acesso
+
         // -------------------------------------------------------
-        // FIX: Contas a Pagar NAO traz origem, destino, destinatario,
-        // peso nem modal reais (esses campos vem do import de XML).
-        // Se o registro ja existe, preservamos o valor do banco em vez
-        // de gravar o vazio que o sync traz (mesma logica do fornecedor_id).
-        // Registro novo usa o default da normalizar.
-        // Tambem mantemos a chave real ja existente para nao duplicar omie-*.
+        // FIX v4: a linha que o upsert vai REALMENTE atualizar e' a que
+        // casa pela chave_acesso. Preservamos os campos do XML DELA, e
+        // usamos o id DELA (nao geramos id novo pra quem ja existe).
+        // O 'existente' por omie_id fica so como reforco.
+        // Valor vazio ('' ou 0) conta como "nao tem", entao usamos o base.
         // -------------------------------------------------------
+        const alvo = existentesPorChave.get(chaveFinal) ?? existente
+
         return {
           ...base,
-          id: existente?.id ?? randomUUID(),
-          chave_acesso: base.chave_acesso?.startsWith('omie-')
-            ? (existente?.chave_acesso ?? base.chave_acesso)
-            : base.chave_acesso,
-          uf_origem:         existente ? (existente.uf_origem ?? base.uf_origem) : base.uf_origem,
-          uf_destino:        existente ? (existente.uf_destino ?? base.uf_destino) : base.uf_destino,
-          destinatario_nome: existente ? (existente.destinatario_nome ?? base.destinatario_nome) : base.destinatario_nome,
-          peso_real:         existente ? (existente.peso_real ?? base.peso_real) : base.peso_real,
-          modal:             existente ? (existente.modal ?? base.modal) : base.modal,
+          chave_acesso:      chaveFinal,
+          id:                alvo?.id ?? randomUUID(),
+          uf_origem:         alvo?.uf_origem        || base.uf_origem,
+          uf_destino:        alvo?.uf_destino       || base.uf_destino,
+          destinatario_nome: alvo?.destinatario_nome || base.destinatario_nome,
+          peso_real:         alvo?.peso_real         || base.peso_real,
+          modal:             alvo?.modal             || base.modal,
         }
       })
 

@@ -78,7 +78,10 @@ export async function GET(req: NextRequest) {
     if (!emails.length) continue
 
     const horaConf = cfg.hora_envio ?? 8
-    if (horaBrt !== horaConf) continue
+    // FIX: o GitHub Actions atrasa/pula execucoes, entao quase nunca cai
+    // uma rodada exatamente na hora configurada. Disparamos a partir dela
+    // (>=); o guard jaEnviadoHoje abaixo impede repetir no mesmo dia.
+    if (horaBrt < horaConf) continue
 
     // --- SEMANAL ---
     if (cfg.envio_semanal_ativo && diaSemana === (cfg.dia_semana_envio ?? 1)) {

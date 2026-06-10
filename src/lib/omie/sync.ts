@@ -66,7 +66,7 @@ export async function syncCtes(
     // -------------------------------------------------------
     const { data: existentes } = await supabase
       .from('ctes')
-      .select('omie_id, id, status, fornecedor_id')
+      .select('omie_id, id, status, fornecedor_id, chave_acesso, uf_origem, uf_destino, destinatario_nome, peso_real, modal')
       .eq('empresa_id', empresaId)
 
     const existentesMap = new Map(existentes?.map(c => [c.omie_id, c]) ?? [])
@@ -165,9 +165,27 @@ export async function syncCtes(
         const centroCustoId = centroMap.get(raw.cCodCentroCusto ?? '')
         // Tabela 'ctes' exige id NOT NULL sem default — geramos UUID
         // pra CTes novas (existentes ja tem id, mantemos).
+        const base = OmieClient.normalizar(raw, empresaId, fornecedorId, centroCustoId)
+
+        // -------------------------------------------------------
+        // FIX: Contas a Pagar NAO traz origem, destino, destinatario,
+        // peso nem modal reais (esses campos vem do import de XML).
+        // Se o registro ja existe, preservamos o valor do banco em vez
+        // de gravar o vazio que o sync traz (mesma logica do fornecedor_id).
+        // Registro novo usa o default da normalizar.
+        // Tambem mantemos a chave real ja existente para nao duplicar omie-*.
+        // -------------------------------------------------------
         return {
-          ...OmieClient.normalizar(raw, empresaId, fornecedorId, centroCustoId),
+          ...base,
           id: existente?.id ?? randomUUID(),
+          chave_acesso: base.chave_acesso?.startsWith('omie-')
+            ? (existente?.chave_acesso ?? base.chave_acesso)
+            : base.chave_acesso,
+          uf_origem:         existente ? (existente.uf_origem ?? base.uf_origem) : base.uf_origem,
+          uf_destino:        existente ? (existente.uf_destino ?? base.uf_destino) : base.uf_destino,
+          destinatario_nome: existente ? (existente.destinatario_nome ?? base.destinatario_nome) : base.destinatario_nome,
+          peso_real:         existente ? (existente.peso_real ?? base.peso_real) : base.peso_real,
+          modal:             existente ? (existente.modal ?? base.modal) : base.modal,
         }
       })
 

@@ -83,7 +83,7 @@ export default function AlterarSenhaPage() {
     <div style={{ minHeight: '100vh', background: '#F0EEE8', fontFamily: "'DM Sans', system-ui, sans-serif", color: '#1A1916' }}>
       {/* Header simples */}
       <header style={{ background: '#1A1916', padding: '0 32px', height: '56px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-        <span style={{ fontSize: '20px' }}>📦</span>
+        <img src="/amerinode-mark.png" alt="Amerinode" style={{ height: '24px', width: 'auto' }} />
         <span style={{ fontSize: '15px', fontWeight: '600', color: '#F0EEE8' }}>Gestão de Log</span>
         <button onClick={() => router.push('/dashboard')} style={{ marginLeft: 'auto', background: 'none', border: '1px solid #555', color: '#F0EEE8', padding: '6px 14px', borderRadius: '6px', fontSize: '12px', cursor: 'pointer' }}>
           ← Voltar

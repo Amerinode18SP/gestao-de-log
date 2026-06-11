@@ -201,7 +201,7 @@ export default function UsuariosPage() {
       {/* Header */}
       <header style={{ background: '#1A1916', padding: '0 32px', height: '56px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 100 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <span style={{ fontSize: '20px' }}>📦</span>
+          <img src="/amerinode-mark.png" alt="Amerinode" style={{ height: '24px', width: 'auto' }} />
           <span style={{ fontSize: '15px', fontWeight: '600', color: '#F0EEE8' }}>Gestão de Log</span>
         </div>
         <div style={{ display: 'flex', gap: '4px' }}>

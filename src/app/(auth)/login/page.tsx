@@ -64,12 +64,7 @@ export default function LoginPage() {
 
         {/* Logo */}
         <div style={{ textAlign: 'center', marginBottom: '32px' }}>
-          <div style={{
-            width: '52px', height: '52px', background: '#185FA5',
-            borderRadius: '12px', display: 'inline-flex',
-            alignItems: 'center', justifyContent: 'center',
-            fontSize: '24px', marginBottom: '12px',
-          }}>🚛</div>
+          <img src="/amerinode-logo.png" alt="Amerinode" style={{ height: '56px', width: 'auto', marginBottom: '12px' }} />
           <h1 style={{ fontSize: '20px', fontWeight: '600', color: '#1A1916', margin: 0 }}>
             Gestão de Log
           </h1>

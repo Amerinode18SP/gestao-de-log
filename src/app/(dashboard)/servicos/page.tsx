@@ -3,7 +3,6 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
-import { createSupabaseBrowser } from '@/lib/supabase/client'
 import { AMERINODE_LOGO } from '@/lib/logo'
 import { parsePlanilhaServicos, ServicoRow } from '@/lib/servicos/importPlanilha'
 
@@ -39,7 +38,6 @@ const NUM_FIELDS = ['distancia_km', 'km_faturado', 'valor_km', 'valor_total', 'q
 export default function ServicosPage() {
   const router = useRouter()
   const { perfil, sair } = useAuth()
-  const supabase = createSupabaseBrowser()
   const inputRef = useRef<HTMLInputElement>(null)
 
   const [menuAberto, setMenuAberto] = useState(false)
@@ -62,14 +60,19 @@ export default function ServicosPage() {
 
   const carregar = useCallback(async () => {
     setLoading(true)
-    let q = supabase.from('servicos').select('*').eq('empresa_id', EMPRESA_ID)
-    if (fTipo !== 'Todos') q = q.eq('tipo', fTipo)
-    if (fMes) q = q.eq('mes_referencia', fMes)
-    const { data, error } = await q.order('data_servico', { ascending: false, nullsFirst: false }).limit(2000)
-    if (error) setMsg({ tipo: 'erro', texto: 'Erro ao carregar: ' + error.message })
-    setServicos((data as Servico[]) ?? [])
+    try {
+      const p = new URLSearchParams({ empresa_id: EMPRESA_ID })
+      if (fTipo !== 'Todos') p.set('tipo', fTipo)
+      if (fMes) p.set('mes', fMes)
+      const res = await fetch('/api/servicos?' + p.toString())
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || 'Falha ao carregar')
+      setServicos((json.servicos as Servico[]) ?? [])
+    } catch (e: any) {
+      setMsg({ tipo: 'erro', texto: 'Erro ao carregar: ' + (e?.message || e) })
+    }
     setLoading(false)
-  }, [supabase, fTipo, fMes])
+  }, [fTipo, fMes])
 
   useEffect(() => { carregar() }, [carregar])
 
@@ -101,28 +104,25 @@ export default function ServicosPage() {
     setMsg(null)
     const registros = preview.linhas.map(l => ({
       ...l,
-      empresa_id: EMPRESA_ID,
       tipo: tipoImport,
       origem_planilha: preview.formato,
     }))
-    let inseridos = 0
-    let erro: string | null = null
-    const LOTE = 200
-    for (let i = 0; i < registros.length; i += LOTE) {
-      const lote = registros.slice(i, i + LOTE)
-      const { error } = await supabase.from('servicos').insert(lote)
-      if (error) { erro = error.message; break }
-      inseridos += lote.length
-    }
-    setImportando(false)
-    if (erro) {
-      setMsg({ tipo: 'erro', texto: `Importou ${inseridos} antes de falhar: ${erro}` })
-    } else {
-      setMsg({ tipo: 'ok', texto: `${inseridos} serviço(s) importado(s) como ${tipoImport}.` })
+    try {
+      const res = await fetch('/api/servicos', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ empresa_id: EMPRESA_ID, registros }),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || 'Falha na importação')
+      setMsg({ tipo: 'ok', texto: `${json.inseridos} serviço(s) importado(s) como ${tipoImport}.` })
       setPreview(null)
       if (inputRef.current) inputRef.current.value = ''
       carregar()
+    } catch (e: any) {
+      setMsg({ tipo: 'erro', texto: 'Erro na importação: ' + (e?.message || e) })
     }
+    setImportando(false)
   }
 
   // -------- salvar (editar/cadastrar) --------
@@ -139,25 +139,42 @@ export default function ServicosPage() {
     if (payload.data_servico) payload.mes_referencia = String(payload.data_servico).slice(0, 7)
 
     const { id, ...campos } = payload
-    let error
-    if (id) {
-      ;({ error } = await supabase.from('servicos').update(campos).eq('id', id))
-    } else {
-      campos.empresa_id = EMPRESA_ID
-      if (!campos.tipo) campos.tipo = 'Motoboy'
-      ;({ error } = await supabase.from('servicos').insert(campos))
+    try {
+      let res: Response
+      if (id) {
+        res = await fetch('/api/servicos', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id, empresa_id: EMPRESA_ID, campos }),
+        })
+      } else {
+        res = await fetch('/api/servicos', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ empresa_id: EMPRESA_ID, registros: [campos] }),
+        })
+      }
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || 'Falha ao salvar')
+      setMsg({ tipo: 'ok', texto: id ? 'Serviço atualizado.' : 'Serviço cadastrado.' })
+      setEditando(null)
+      carregar()
+    } catch (e: any) {
+      setMsg({ tipo: 'erro', texto: 'Erro ao salvar: ' + (e?.message || e) })
     }
-    if (error) { setMsg({ tipo: 'erro', texto: 'Erro ao salvar: ' + error.message }); return }
-    setMsg({ tipo: 'ok', texto: id ? 'Serviço atualizado.' : 'Serviço cadastrado.' })
-    setEditando(null)
-    carregar()
   }
 
   async function excluir(s: Servico) {
     if (!confirm(`Excluir o serviço ${s.os_controle || ''}?`)) return
-    const { error } = await supabase.from('servicos').delete().eq('id', s.id)
-    if (error) { setMsg({ tipo: 'erro', texto: 'Erro ao excluir: ' + error.message }); return }
-    carregar()
+    try {
+      const p = new URLSearchParams({ id: s.id, empresa_id: EMPRESA_ID })
+      const res = await fetch('/api/servicos?' + p.toString(), { method: 'DELETE' })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || 'Falha ao excluir')
+      carregar()
+    } catch (e: any) {
+      setMsg({ tipo: 'erro', texto: 'Erro ao excluir: ' + (e?.message || e) })
+    }
   }
 
   // -------- filtro de texto (client-side) --------

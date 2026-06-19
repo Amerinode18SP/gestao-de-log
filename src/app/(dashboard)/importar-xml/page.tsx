@@ -124,9 +124,9 @@ export default function ImportarXmlPage() {
   const supabase = createSupabaseBrowser()
   const inputRef = useRef<HTMLInputElement>(null)
   const [dragging, setDragging] = useState(false)
-  const [arquivos, setArquivos] = useState<{ nome: string; status: 'aguardando' | 'ok' | 'erro' | 'duplicado'; cte?: CteImportado; erro?: string }[]>([])
+  const [arquivos, setArquivos] = useState<{ nome: string; status: 'aguardando' | 'ok' | 'erro' | 'duplicado' | 'atualizado'; cte?: CteImportado; erro?: string }[]>([])
   const [processando, setProcessando] = useState(false)
-  const [resumo, setResumo] = useState<{ importados: number; erros: number; duplicados: number } | null>(null)
+  const [resumo, setResumo] = useState<{ importados: number; erros: number; atualizados: number } | null>(null)
 
   async function processarArquivos(files: FileList) {
     const lista = Array.from(files).filter(f => f.name.endsWith('.xml'))
@@ -137,7 +137,7 @@ export default function ImportarXmlPage() {
     setResumo(null)
     setProcessando(true)
 
-    let importados = 0, erros = 0, duplicados = 0
+    let importados = 0, erros = 0, atualizados = 0
 
     for (let i = 0; i < lista.length; i++) {
       const file = lista[i]
@@ -150,7 +150,10 @@ export default function ImportarXmlPage() {
         continue
       }
 
-      // Verificar duplicado pela chave de acesso
+      // Verificar se ja existe pela chave de acesso. Se existir (caso comum:
+      // o CT-e ja veio do sync da Omie), NAO pulamos — atualizamos com os
+      // campos que so o XML traz (destinatario, origem->destino, peso) sem
+      // sobrescrever o que a Omie ja preencheu (valor, status, fornecedor).
       if (cte.chave_acesso) {
         const { data: exist } = await supabase
           .from('ctes')
@@ -160,8 +163,36 @@ export default function ImportarXmlPage() {
           .maybeSingle()
 
         if (exist) {
-          setArquivos(prev => prev.map((a, idx) => idx === i ? { ...a, status: 'duplicado', cte } : a))
-          duplicados++
+          const enrich: Record<string, any> = {}
+          if (cte.destinatario_nome) enrich.destinatario_nome = cte.destinatario_nome
+          if (cte.destinatario_cnpj) enrich.destinatario_cnpj = cte.destinatario_cnpj
+          if (cte.remetente_nome)    enrich.remetente_nome    = cte.remetente_nome
+          if (cte.remetente_cnpj)    enrich.remetente_cnpj    = cte.remetente_cnpj
+          if (cte.uf_origem)         enrich.uf_origem         = cte.uf_origem
+          if (cte.uf_destino)        enrich.uf_destino        = cte.uf_destino
+          if (cte.peso_real > 0)     enrich.peso_real         = cte.peso_real
+          if (cte.peso_cubado > 0)   enrich.peso_cubado       = cte.peso_cubado
+          if (cte.peso_taxado > 0)   enrich.peso_taxado       = cte.peso_taxado
+          if (cte.modal)             enrich.modal             = cte.modal
+
+          if (Object.keys(enrich).length === 0) {
+            setArquivos(prev => prev.map((a, idx) => idx === i ? { ...a, status: 'duplicado', cte } : a))
+            atualizados++
+            continue
+          }
+
+          const { error: upErr } = await supabase
+            .from('ctes')
+            .update(enrich)
+            .eq('id', exist.id)
+
+          if (upErr) {
+            setArquivos(prev => prev.map((a, idx) => idx === i ? { ...a, status: 'erro', erro: upErr.message, cte } : a))
+            erros++
+          } else {
+            setArquivos(prev => prev.map((a, idx) => idx === i ? { ...a, status: 'atualizado', cte } : a))
+            atualizados++
+          }
           continue
         }
       }
@@ -199,7 +230,7 @@ export default function ImportarXmlPage() {
       }
     }
 
-    setResumo({ importados, erros, duplicados })
+    setResumo({ importados, erros, atualizados })
     setProcessando(false)
   }
 
@@ -270,8 +301,8 @@ export default function ImportarXmlPage() {
             <div style={{ fontSize: '12px', color: '#3A6B12' }}>✅ Importados com sucesso</div>
           </div>
           <div style={{ background: '#FAEEDA', border: '0.5px solid #F0C070', borderRadius: '8px', padding: '12px 16px' }}>
-            <div style={{ fontSize: '22px', fontWeight: '600', color: '#633806' }}>{resumo.duplicados}</div>
-            <div style={{ fontSize: '12px', color: '#854F0B' }}>⚠️ Já existiam no sistema</div>
+            <div style={{ fontSize: '22px', fontWeight: '600', color: '#633806' }}>{resumo.atualizados}</div>
+            <div style={{ fontSize: '12px', color: '#854F0B' }}>🔄 Atualizados (destinatário, UF, peso)</div>
           </div>
           <div style={{ background: '#FCEBEB', border: '0.5px solid #E8AEAE', borderRadius: '8px', padding: '12px 16px' }}>
             <div style={{ fontSize: '22px', fontWeight: '600', color: '#791F1F' }}>{resumo.erros}</div>
@@ -293,7 +324,7 @@ export default function ImportarXmlPage() {
               alignItems: 'center', fontSize: '12px'
             }}>
               <span style={{ fontSize: '16px' }}>
-                {a.status === 'aguardando' ? '⏳' : a.status === 'ok' ? '✅' : a.status === 'duplicado' ? '⚠️' : '❌'}
+                {a.status === 'aguardando' ? '⏳' : a.status === 'ok' ? '✅' : a.status === 'atualizado' ? '🔄' : a.status === 'duplicado' ? '⚠️' : '❌'}
               </span>
               <div>
                 <div style={{ fontWeight: '500', color: '#1A1916' }}>{a.nome}</div>
@@ -303,14 +334,15 @@ export default function ImportarXmlPage() {
                   </div>
                 )}
                 {a.erro && <div style={{ color: '#A32D2D', fontSize: '11px' }}>{a.erro}</div>}
+                {a.status === 'atualizado' && <div style={{ color: '#854F0B', fontSize: '11px' }}>CT-e já existia — atualizado com destinatário, origem→destino e peso do XML</div>}
                 {a.status === 'duplicado' && <div style={{ color: '#854F0B', fontSize: '11px' }}>CT-e já importado anteriormente</div>}
               </div>
               <span style={{
                 padding: '2px 8px', borderRadius: '100px', fontSize: '10px', fontWeight: '500',
-                background: a.status === 'ok' ? '#EAF3DE' : a.status === 'duplicado' ? '#FAEEDA' : a.status === 'erro' ? '#FCEBEB' : '#F1EFE8',
-                color: a.status === 'ok' ? '#27500A' : a.status === 'duplicado' ? '#633806' : a.status === 'erro' ? '#791F1F' : '#888780',
+                background: a.status === 'ok' ? '#EAF3DE' : (a.status === 'duplicado' || a.status === 'atualizado') ? '#FAEEDA' : a.status === 'erro' ? '#FCEBEB' : '#F1EFE8',
+                color: a.status === 'ok' ? '#27500A' : (a.status === 'duplicado' || a.status === 'atualizado') ? '#633806' : a.status === 'erro' ? '#791F1F' : '#888780',
               }}>
-                {a.status === 'ok' ? 'Importado' : a.status === 'duplicado' ? 'Duplicado' : a.status === 'erro' ? 'Erro' : 'Aguardando'}
+                {a.status === 'ok' ? 'Importado' : a.status === 'atualizado' ? 'Atualizado' : a.status === 'duplicado' ? 'Duplicado' : a.status === 'erro' ? 'Erro' : 'Aguardando'}
               </span>
               {a.cte && <span style={{ color: '#888780', fontSize: '11px' }}>{a.cte.modal}</span>}
             </div>

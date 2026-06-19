@@ -179,7 +179,8 @@ function mesRef(dataIso?: string): string | undefined {
 
 // ---------- parser principal ----------
 export function parsePlanilhaServicos(buf: ArrayBuffer): ParseResult {
-  const wb = XLSX.read(buf, { type: 'array', cellDates: true })
+  // SheetJS lê de forma mais confiável a partir de Uint8Array do que de ArrayBuffer cru
+  const wb = XLSX.read(new Uint8Array(buf), { type: 'array', cellDates: true })
 
   // Escolhe a melhor aba: a primeira cujo cabeçalho é reconhecido
   let escolha: { aba: string; rows: any[][]; det: { formato: FormatoPlanilha; headerRow: number } } | null = null

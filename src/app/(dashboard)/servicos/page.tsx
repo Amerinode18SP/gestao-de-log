@@ -74,19 +74,24 @@ export default function ServicosPage() {
   useEffect(() => { carregar() }, [carregar])
 
   // -------- importação de planilha --------
+  const [lendo, setLendo] = useState(false)
   async function aoSelecionarArquivo(file: File) {
     setMsg(null)
+    setPreview(null)
+    setLendo(true)
     try {
       const buf = await file.arrayBuffer()
       const res = parsePlanilhaServicos(buf)
       if (res.formato === 'Desconhecido' || res.linhas.length === 0) {
-        setPreview(null)
-        setMsg({ tipo: 'erro', texto: 'Formato não reconhecido ou planilha sem linhas válidas. Esperado: Fechamento (OS) ou Conferência (Controle).' })
+        setMsg({ tipo: 'erro', texto: `Não reconheci "${file.name}". Esperado: planilha de Fechamento (coluna OS) ou Conferência (coluna Controle). Detectado: ${res.formato}, ${res.linhas.length} linha(s).` })
         return
       }
       setPreview({ formato: res.formato, linhas: res.linhas, ignoradas: res.ignoradas, nome: file.name })
     } catch (e: any) {
-      setMsg({ tipo: 'erro', texto: 'Erro ao ler arquivo: ' + e.message })
+      console.error('[servicos] erro ao ler planilha:', e)
+      setMsg({ tipo: 'erro', texto: 'Erro ao ler arquivo: ' + (e?.message || e) })
+    } finally {
+      setLendo(false)
     }
   }
 
@@ -257,8 +262,12 @@ export default function ServicosPage() {
               ))}
             </div>
             <input ref={inputRef} type="file" accept=".xlsx,.xls"
-              onChange={e => e.target.files?.[0] && aoSelecionarArquivo(e.target.files[0])}
-              style={{ fontSize: 12 }} />
+              onChange={e => { const f = e.target.files?.[0]; if (f) aoSelecionarArquivo(f) }}
+              style={{ display: 'none' }} />
+            <button onClick={() => inputRef.current?.click()} disabled={lendo}
+              style={{ background: '#185FA5', color: '#fff', border: 'none', borderRadius: 8, padding: '7px 16px', fontSize: 12, fontWeight: 500, cursor: 'pointer', opacity: lendo ? 0.6 : 1 }}>
+              {lendo ? 'Lendo…' : '📂 Selecionar planilha'}
+            </button>
           </div>
 
           {preview && (

@@ -9,7 +9,7 @@ import { createSupabaseAdmin } from '@/lib/supabase/client'
 export const maxDuration = 60
 
 function sanitizar(r: Record<string, any>, empresa_id: string) {
-  const out = { ...r, empresa_id }
+  const out: Record<string, any> = { ...r, empresa_id }
   // UF é char(2) no banco — corta excesso pra não derrubar o lote inteiro
   for (const k of ['origem_uf', 'destino_uf']) {
     if (out[k]) out[k] = String(out[k]).trim().slice(0, 2).toUpperCase()

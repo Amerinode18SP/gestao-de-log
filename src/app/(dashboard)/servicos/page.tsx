@@ -352,7 +352,7 @@ export default function ServicosPage() {
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
               <thead>
                 <tr style={{ background: '#F7F6F2', color: '#666', textAlign: 'left' }}>
-                  {['Tipo', 'Fornecedor', 'Data', 'Horário', 'Período', 'FDS/Fer.', 'OS / Controle', 'Base', 'Origem → Destino', 'Endereço destino', 'Veículo', 'KM', 'Valor KM', 'Qtde', 'Chamado', 'Valor', ''].map((h, i) => (
+                  {['Tipo', 'Fornecedor', 'Data', 'Horário', 'Período', 'FDS/Fer.', 'Valor KM', 'OS / Controle', 'Base', 'Origem → Destino', 'Endereço destino', 'Veículo', 'KM', 'Qtde', 'Chamado', 'Valor', ''].map((h, i) => (
                     <th key={i} style={{ padding: '9px 12px', fontWeight: 600, whiteSpace: 'nowrap', borderBottom: '0.5px solid #E2E0D8' }}>{h}</th>
                   ))}
                 </tr>
@@ -377,13 +377,13 @@ export default function ServicosPage() {
                       <td style={{ padding: '8px 12px', whiteSpace: 'nowrap' }}>{s.hora_saida || '—'}</td>
                       <td style={{ padding: '8px 12px', whiteSpace: 'nowrap' }}>{s.periodo || '—'}</td>
                       <td style={{ padding: '8px 12px', whiteSpace: 'nowrap' }}>{s.fds_feriado ? 'Sim' : '—'}</td>
+                      <td style={{ padding: '8px 12px', whiteSpace: 'nowrap' }}>{s.valor_km != null ? brl(s.valor_km) : '—'}</td>
                       <td style={{ padding: '8px 12px', whiteSpace: 'nowrap' }}>{s.os_controle || '—'}</td>
                       <td style={{ padding: '8px 12px' }}>{s.base || '—'}</td>
                       <td style={{ padding: '8px 12px', maxWidth: 240, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={rota}>{rota}</td>
                       <td style={{ padding: '8px 12px', maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={s.destino_endereco || ''}>{s.destino_endereco || '—'}</td>
                       <td style={{ padding: '8px 12px' }}>{s.veiculo || '—'}</td>
                       <td style={{ padding: '8px 12px', whiteSpace: 'nowrap' }}>{s.km_faturado ?? s.distancia_km ?? '—'}</td>
-                      <td style={{ padding: '8px 12px', whiteSpace: 'nowrap' }}>{s.valor_km != null ? brl(s.valor_km) : '—'}</td>
                       <td style={{ padding: '8px 12px' }}>{s.quantidade ?? '—'}</td>
                       <td style={{ padding: '8px 12px', maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={s.chamados || ''}>{s.chamados || '—'}</td>
                       <td style={{ padding: '8px 12px', whiteSpace: 'nowrap', fontWeight: 600 }}>{brl(s.valor_total)}</td>

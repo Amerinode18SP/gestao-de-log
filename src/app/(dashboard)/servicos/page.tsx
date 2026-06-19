@@ -15,7 +15,10 @@ interface Servico extends ServicoRow {
   id: string
   tipo: Tipo
   origem_planilha?: string
+  fornecedor?: string
 }
+
+const LS_FORNECEDOR = 'servicos_fornecedor_padrao'
 
 const TIPO_COLOR: Record<Tipo, { bg: string; text: string }> = {
   Frete:   { bg: '#E6F1FB', text: '#185FA5' },
@@ -51,6 +54,7 @@ export default function ServicosPage() {
 
   // importação
   const [tipoImport, setTipoImport] = useState<Tipo>('Motoboy')
+  const [fornecedorImport, setFornecedorImport] = useState('')
   const [preview, setPreview] = useState<{ formato: string; linhas: ServicoRow[]; ignoradas: number; nome: string } | null>(null)
   const [importando, setImportando] = useState(false)
   const [msg, setMsg] = useState<{ tipo: 'ok' | 'erro'; texto: string } | null>(null)
@@ -75,6 +79,11 @@ export default function ServicosPage() {
   }, [fTipo, fMes])
 
   useEffect(() => { carregar() }, [carregar])
+
+  // Recupera o fornecedor padrão salvo na última importação
+  useEffect(() => {
+    try { const v = localStorage.getItem(LS_FORNECEDOR); if (v) setFornecedorImport(v) } catch {}
+  }, [])
 
   // -------- importação de planilha --------
   const [lendo, setLendo] = useState(false)
@@ -102,12 +111,15 @@ export default function ServicosPage() {
     if (!preview) return
     setImportando(true)
     setMsg(null)
+    const forn = fornecedorImport.trim()
     const registros = preview.linhas.map(l => ({
       ...l,
       tipo: tipoImport,
       origem_planilha: preview.formato,
+      fornecedor: forn || undefined,
     }))
     try {
+      if (forn) { try { localStorage.setItem(LS_FORNECEDOR, forn) } catch {} }
       const res = await fetch('/api/servicos', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -181,7 +193,7 @@ export default function ServicosPage() {
   const filtrados = servicos.filter(s => {
     if (!busca.trim()) return true
     const t = busca.toLowerCase()
-    return [s.os_controle, s.base, s.cliente, s.solicitante, s.destino_descricao, s.destino_cidade, s.chamados]
+    return [s.os_controle, s.base, s.cliente, s.solicitante, s.fornecedor, s.destino_descricao, s.destino_cidade, s.chamados]
       .some(v => (v ?? '').toLowerCase().includes(t))
   })
   const totalValor = filtrados.reduce((a, s) => a + (s.valor_total ?? 0), 0)
@@ -278,6 +290,12 @@ export default function ServicosPage() {
                 </button>
               ))}
             </div>
+            <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+              <span style={{ fontSize: 12, color: '#666' }}>Fornecedor:</span>
+              <input value={fornecedorImport} onChange={e => setFornecedorImport(e.target.value)}
+                placeholder="nome do fornecedor"
+                style={{ padding: '5px 10px', borderRadius: 6, border: '1px solid #D4D2CA', fontSize: 12, minWidth: 180 }} />
+            </div>
             <input ref={inputRef} type="file" accept=".xlsx,.xls"
               onChange={e => { const f = e.target.files?.[0]; if (f) aoSelecionarArquivo(f) }}
               style={{ display: 'none' }} />
@@ -293,6 +311,7 @@ export default function ServicosPage() {
                 <strong>{preview.nome}</strong> — formato <strong>{preview.formato}</strong> ·{' '}
                 <strong>{preview.linhas.length}</strong> linha(s) válida(s){preview.ignoradas ? ` · ${preview.ignoradas} ignorada(s)` : ''} ·
                 serão importadas como <strong style={{ color: TIPO_COLOR[tipoImport].text }}>{tipoImport}</strong>
+                {fornecedorImport.trim() ? <> · fornecedor <strong>{fornecedorImport.trim()}</strong></> : ''}
               </div>
               <div style={{ display: 'flex', gap: 8 }}>
                 <button onClick={() => { setPreview(null); if (inputRef.current) inputRef.current.value = '' }}
@@ -333,16 +352,16 @@ export default function ServicosPage() {
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
               <thead>
                 <tr style={{ background: '#F7F6F2', color: '#666', textAlign: 'left' }}>
-                  {['Tipo', 'Data', 'OS / Controle', 'Base', 'Origem → Destino', 'Veículo', 'KM', 'Qtde', 'Valor', 'Status', ''].map(h => (
-                    <th key={h} style={{ padding: '9px 12px', fontWeight: 600, whiteSpace: 'nowrap', borderBottom: '0.5px solid #E2E0D8' }}>{h}</th>
+                  {['Tipo', 'Fornecedor', 'Data', 'Horário', 'Período', 'FDS/Fer.', 'OS / Controle', 'Base', 'Origem → Destino', 'Endereço destino', 'Veículo', 'KM', 'Valor KM', 'Qtde', 'Chamado', 'Valor', ''].map((h, i) => (
+                    <th key={i} style={{ padding: '9px 12px', fontWeight: 600, whiteSpace: 'nowrap', borderBottom: '0.5px solid #E2E0D8' }}>{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {loading ? (
-                  <tr><td colSpan={11} style={{ padding: 24, textAlign: 'center', color: '#999' }}>Carregando…</td></tr>
+                  <tr><td colSpan={17} style={{ padding: 24, textAlign: 'center', color: '#999' }}>Carregando…</td></tr>
                 ) : filtrados.length === 0 ? (
-                  <tr><td colSpan={11} style={{ padding: 24, textAlign: 'center', color: '#999' }}>Nenhum serviço. Importe uma planilha ou cadastre um novo.</td></tr>
+                  <tr><td colSpan={17} style={{ padding: 24, textAlign: 'center', color: '#999' }}>Nenhum serviço. Importe uma planilha ou cadastre um novo.</td></tr>
                 ) : filtrados.map(s => {
                   const tc = TIPO_COLOR[s.tipo] ?? TIPO_COLOR.Motoboy
                   const rota = [s.origem_cidade && `${s.origem_cidade}${s.origem_uf ? '/' + s.origem_uf : ''}`,
@@ -353,15 +372,21 @@ export default function ServicosPage() {
                       <td style={{ padding: '8px 12px' }}>
                         <span style={{ padding: '2px 8px', borderRadius: 100, fontSize: 10, fontWeight: 600, background: tc.bg, color: tc.text }}>{s.tipo}</span>
                       </td>
+                      <td style={{ padding: '8px 12px', maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={s.fornecedor || ''}>{s.fornecedor || '—'}</td>
                       <td style={{ padding: '8px 12px', whiteSpace: 'nowrap' }}>{dataBR(s.data_servico)}</td>
+                      <td style={{ padding: '8px 12px', whiteSpace: 'nowrap' }}>{s.hora_saida || '—'}</td>
+                      <td style={{ padding: '8px 12px', whiteSpace: 'nowrap' }}>{s.periodo || '—'}</td>
+                      <td style={{ padding: '8px 12px', whiteSpace: 'nowrap' }}>{s.fds_feriado ? 'Sim' : '—'}</td>
                       <td style={{ padding: '8px 12px', whiteSpace: 'nowrap' }}>{s.os_controle || '—'}</td>
                       <td style={{ padding: '8px 12px' }}>{s.base || '—'}</td>
-                      <td style={{ padding: '8px 12px', maxWidth: 280, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={rota}>{rota}</td>
+                      <td style={{ padding: '8px 12px', maxWidth: 240, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={rota}>{rota}</td>
+                      <td style={{ padding: '8px 12px', maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={s.destino_endereco || ''}>{s.destino_endereco || '—'}</td>
                       <td style={{ padding: '8px 12px' }}>{s.veiculo || '—'}</td>
                       <td style={{ padding: '8px 12px', whiteSpace: 'nowrap' }}>{s.km_faturado ?? s.distancia_km ?? '—'}</td>
+                      <td style={{ padding: '8px 12px', whiteSpace: 'nowrap' }}>{s.valor_km != null ? brl(s.valor_km) : '—'}</td>
                       <td style={{ padding: '8px 12px' }}>{s.quantidade ?? '—'}</td>
+                      <td style={{ padding: '8px 12px', maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={s.chamados || ''}>{s.chamados || '—'}</td>
                       <td style={{ padding: '8px 12px', whiteSpace: 'nowrap', fontWeight: 600 }}>{brl(s.valor_total)}</td>
-                      <td style={{ padding: '8px 12px' }}>{s.status || '—'}</td>
                       <td style={{ padding: '8px 12px', whiteSpace: 'nowrap' }}>
                         <button onClick={() => setEditando(s)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, marginRight: 6 }} title="Editar">✏️</button>
                         <button onClick={() => excluir(s)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13 }} title="Excluir">🗑️</button>
@@ -390,8 +415,10 @@ export default function ServicosPage() {
                   {TIPOS.map(t => <option key={t} value={t}>{t}</option>)}
                 </select>
               </Campo>
+              <Campo label="Fornecedor"><input value={editando.fornecedor || ''} onChange={e => setEditando({ ...editando, fornecedor: e.target.value })} style={inp} /></Campo>
               <Campo label="OS / Controle"><input value={editando.os_controle || ''} onChange={e => setEditando({ ...editando, os_controle: e.target.value })} style={inp} /></Campo>
               <Campo label="Data"><input type="date" value={editando.data_servico || ''} onChange={e => setEditando({ ...editando, data_servico: e.target.value })} style={inp} /></Campo>
+              <Campo label="Horário (abertura)"><input value={editando.hora_saida || ''} onChange={e => setEditando({ ...editando, hora_saida: e.target.value })} style={inp} /></Campo>
               <Campo label="Base"><input value={editando.base || ''} onChange={e => setEditando({ ...editando, base: e.target.value })} style={inp} /></Campo>
               <Campo label="Cliente"><input value={editando.cliente || ''} onChange={e => setEditando({ ...editando, cliente: e.target.value })} style={inp} /></Campo>
               <Campo label="Solicitante"><input value={editando.solicitante || ''} onChange={e => setEditando({ ...editando, solicitante: e.target.value })} style={inp} /></Campo>
@@ -402,6 +429,13 @@ export default function ServicosPage() {
               <Campo label="UF origem"><input value={editando.origem_uf || ''} maxLength={2} onChange={e => setEditando({ ...editando, origem_uf: e.target.value.toUpperCase() })} style={inp} /></Campo>
               <Campo label="Cidade destino"><input value={editando.destino_cidade || ''} onChange={e => setEditando({ ...editando, destino_cidade: e.target.value })} style={inp} /></Campo>
               <Campo label="UF destino"><input value={editando.destino_uf || ''} maxLength={2} onChange={e => setEditando({ ...editando, destino_uf: e.target.value.toUpperCase() })} style={inp} /></Campo>
+              <Campo label="Endereço destino"><input value={editando.destino_endereco || ''} onChange={e => setEditando({ ...editando, destino_endereco: e.target.value })} style={inp} /></Campo>
+              <Campo label="FDS/Feriado">
+                <select value={editando.fds_feriado ? 'sim' : 'nao'} onChange={e => setEditando({ ...editando, fds_feriado: e.target.value === 'sim' })} style={inp}>
+                  <option value="nao">Não</option>
+                  <option value="sim">Sim</option>
+                </select>
+              </Campo>
               <Campo label="KM faturado"><input value={editando.km_faturado ?? ''} onChange={e => setEditando({ ...editando, km_faturado: e.target.value as any })} style={inp} /></Campo>
               <Campo label="Distância (km)"><input value={editando.distancia_km ?? ''} onChange={e => setEditando({ ...editando, distancia_km: e.target.value as any })} style={inp} /></Campo>
               <Campo label="Valor KM"><input value={editando.valor_km ?? ''} onChange={e => setEditando({ ...editando, valor_km: e.target.value as any })} style={inp} /></Campo>

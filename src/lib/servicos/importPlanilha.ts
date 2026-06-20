@@ -130,6 +130,15 @@ function str(v: any): string | undefined {
   return s === '' ? undefined : s
 }
 
+// Período pela hora de abertura: Diurno 07:00–17:59, senão Noturno (18:00–06:59)
+function periodoPorHora(hora?: string): string | undefined {
+  if (!hora) return undefined
+  const m = hora.match(/^(\d{1,2}):(\d{2})/)
+  if (!m) return undefined
+  const min = parseInt(m[1], 10) * 60 + parseInt(m[2], 10)
+  return min >= 420 && min <= 1079 ? 'Diurno' : 'Noturno'
+}
+
 // Localiza a coluna cujo cabeçalho casa EXATAMENTE (sem acento/caixa) com um dos nomes
 function idx(hdr: string[], nomes: string[]): number {
   for (const n of nomes) {
@@ -230,13 +239,14 @@ export function parsePlanilhaServicos(buf: ArrayBuffer): ParseResult {
       const os = c.os >= 0 ? str(row[c.os]) : undefined
       if (!os) { ignoradas++; continue }
       const data = c.data >= 0 ? toDateISO(row[c.data]) : undefined
+      const hora = c.hora >= 0 ? toTime(row[c.hora]) : undefined
       const chamados = chamadoCols.map(i => str(row[i])).filter(Boolean).join(', ') || undefined
       linhas.push({
         os_controle: os,
         data_servico: data,
         mes_referencia: mesRef(data),
-        hora_saida: c.hora >= 0 ? toTime(row[c.hora]) : undefined,
-        periodo: c.periodo >= 0 ? str(row[c.periodo]) : undefined,
+        hora_saida: hora,
+        periodo: periodoPorHora(hora) ?? (c.periodo >= 0 ? str(row[c.periodo]) : undefined),
         fds_feriado: c.fds >= 0 ? toBool(row[c.fds]) : false,
         valor_km: c.valorKm >= 0 ? toNumber(row[c.valorKm]) : undefined,
         base: c.base >= 0 ? str(row[c.base]) : undefined,
@@ -307,6 +317,7 @@ export function parsePlanilhaServicos(buf: ArrayBuffer): ParseResult {
       const ctrl = c.controle >= 0 ? str(row[c.controle]) : undefined
       if (!ctrl) { ignoradas++; continue }
       const data = c.dataSaida >= 0 ? toDateISO(row[c.dataSaida]) : undefined
+      const hSaida = c.horaSaida >= 0 ? toTime(row[c.horaSaida]) : undefined
       const adFds = c.adFds >= 0 ? toNumber(row[c.adFds]) : undefined
       const faturamento = c.faturamento >= 0 ? toNumber(row[c.faturamento]) : undefined
       const total = c.total >= 0 ? toNumber(row[c.total]) : undefined
@@ -315,8 +326,8 @@ export function parsePlanilhaServicos(buf: ArrayBuffer): ParseResult {
         base: c.base >= 0 ? str(row[c.base]) : undefined,
         data_servico: data,
         mes_referencia: mesRef(data),
-        hora_saida: c.horaSaida >= 0 ? toTime(row[c.horaSaida]) : undefined,
-        periodo: c.periodo >= 0 ? str(row[c.periodo]) : undefined,
+        hora_saida: hSaida,
+        periodo: periodoPorHora(hSaida) ?? (c.periodo >= 0 ? str(row[c.periodo]) : undefined),
         semana_referencia: c.semana >= 0 ? str(row[c.semana]) : undefined,
         aprovacao: c.aprovacao >= 0 ? str(row[c.aprovacao]) : undefined,
         solicitante: c.solicitante >= 0 ? str(row[c.solicitante]) : undefined,

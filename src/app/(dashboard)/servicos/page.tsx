@@ -352,16 +352,16 @@ export default function ServicosPage() {
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
               <thead>
                 <tr style={{ background: '#F7F6F2', color: '#666', textAlign: 'left' }}>
-                  {['Tipo', 'Fornecedor', 'Data', 'Horário', 'Período', 'FDS/Fer.', 'Valor KM', 'OS / Controle', 'Base', 'Origem → Destino', 'Endereço destino', 'Veículo', 'KM', 'Qtde', 'Chamado', 'Valor', ''].map((h, i) => (
+                  {['Tipo', 'Fornecedor', 'Data', 'Horário', 'Período', 'FDS/Fer.', 'Valor KM', 'OS / Controle', 'Origem → Destino', 'Endereço destino', 'Veículo', 'KM', 'Qtde', 'Chamado', 'Valor', ''].map((h, i) => (
                     <th key={i} style={{ padding: '9px 12px', fontWeight: 600, whiteSpace: 'nowrap', borderBottom: '0.5px solid #E2E0D8' }}>{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {loading ? (
-                  <tr><td colSpan={17} style={{ padding: 24, textAlign: 'center', color: '#999' }}>Carregando…</td></tr>
+                  <tr><td colSpan={16} style={{ padding: 24, textAlign: 'center', color: '#999' }}>Carregando…</td></tr>
                 ) : filtrados.length === 0 ? (
-                  <tr><td colSpan={17} style={{ padding: 24, textAlign: 'center', color: '#999' }}>Nenhum serviço. Importe uma planilha ou cadastre um novo.</td></tr>
+                  <tr><td colSpan={16} style={{ padding: 24, textAlign: 'center', color: '#999' }}>Nenhum serviço. Importe uma planilha ou cadastre um novo.</td></tr>
                 ) : filtrados.map(s => {
                   const tc = TIPO_COLOR[s.tipo] ?? TIPO_COLOR.Motoboy
                   const rota = [s.origem_cidade && `${s.origem_cidade}${s.origem_uf ? '/' + s.origem_uf : ''}`,
@@ -379,7 +379,6 @@ export default function ServicosPage() {
                       <td style={{ padding: '8px 12px', whiteSpace: 'nowrap' }}>{s.fds_feriado ? 'Sim' : '—'}</td>
                       <td style={{ padding: '8px 12px', whiteSpace: 'nowrap' }}>{s.valor_km != null ? brl(s.valor_km) : '—'}</td>
                       <td style={{ padding: '8px 12px', whiteSpace: 'nowrap' }}>{s.os_controle || '—'}</td>
-                      <td style={{ padding: '8px 12px' }}>{s.base || '—'}</td>
                       <td style={{ padding: '8px 12px', maxWidth: 240, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={rota}>{rota}</td>
                       <td style={{ padding: '8px 12px', maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={s.destino_endereco || ''}>{s.destino_endereco || '—'}</td>
                       <td style={{ padding: '8px 12px' }}>{s.veiculo || '—'}</td>

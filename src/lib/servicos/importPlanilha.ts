@@ -130,13 +130,13 @@ function str(v: any): string | undefined {
   return s === '' ? undefined : s
 }
 
-// Período pela hora de abertura: Diurno 07:00–17:59, senão Noturno (18:00–06:59)
+// Período pela hora de abertura: Diurno 06:00–17:59, senão Noturno (18:00–05:59)
 function periodoPorHora(hora?: string): string | undefined {
   if (!hora) return undefined
   const m = hora.match(/^(\d{1,2}):(\d{2})/)
   if (!m) return undefined
   const min = parseInt(m[1], 10) * 60 + parseInt(m[2], 10)
-  return min >= 420 && min <= 1079 ? 'Diurno' : 'Noturno'
+  return min >= 360 && min <= 1079 ? 'Diurno' : 'Noturno'
 }
 
 // Localiza a coluna cujo cabeçalho casa EXATAMENTE (sem acento/caixa) com um dos nomes

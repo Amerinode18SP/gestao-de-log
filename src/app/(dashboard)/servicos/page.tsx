@@ -348,12 +348,12 @@ export default function ServicosPage() {
 
         {/* TABELA */}
         <div style={{ background: '#fff', border: '0.5px solid #E2E0D8', borderRadius: 12, overflow: 'hidden' }}>
-          <div style={{ overflowX: 'auto' }}>
+          <div style={{ overflowX: 'auto', overflowY: 'auto', maxHeight: 'calc(100vh - 300px)' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
               <thead>
-                <tr style={{ background: '#F7F6F2', color: '#666', textAlign: 'left' }}>
+                <tr style={{ color: '#666', textAlign: 'left' }}>
                   {['Tipo', 'Fornecedor', 'Data', 'Horário', 'Período', 'FDS/Fer.', 'Valor KM', 'OS / Controle', 'Origem → Destino', 'Endereço destino', 'Veículo', 'KM', 'Qtde', 'Chamado', 'Valor', ''].map((h, i) => (
-                    <th key={i} style={{ padding: '9px 12px', fontWeight: 600, whiteSpace: 'nowrap', borderBottom: '0.5px solid #E2E0D8' }}>{h}</th>
+                    <th key={i} style={{ padding: '9px 12px', fontWeight: 600, whiteSpace: 'nowrap', borderBottom: '0.5px solid #E2E0D8', background: '#F7F6F2', position: 'sticky', top: 0, zIndex: 2 }}>{h}</th>
                   ))}
                 </tr>
               </thead>

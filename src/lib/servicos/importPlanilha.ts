@@ -370,5 +370,18 @@ export function parsePlanilhaServicos(buf: ArrayBuffer): ParseResult {
     }
   }
 
-  return { formato: det.formato, aba, linhas, ignoradas }
+  // Descarta linhas vazias: sem data, sem valor e sem destino — geralmente
+  // linhas em branco/modelo da planilha que não devem virar registros.
+  const validas = linhas.filter(l => !linhaVazia(l))
+  ignoradas += linhas.length - validas.length
+
+  return { formato: det.formato, aba, linhas: validas, ignoradas }
+}
+
+function linhaVazia(r: ServicoRow): boolean {
+  return !r.data_servico
+    && (r.valor_total == null || r.valor_total === 0)
+    && !r.destino_endereco
+    && !r.destino_descricao
+    && !r.destino_cidade
 }

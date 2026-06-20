@@ -349,7 +349,7 @@ export default function ServicosPage() {
         {/* TABELA */}
         <div style={{ background: '#fff', border: '0.5px solid #E2E0D8', borderRadius: 12, overflow: 'hidden' }}>
           <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
               <thead>
                 <tr style={{ background: '#F7F6F2', color: '#666', textAlign: 'left' }}>
                   {['Tipo', 'Fornecedor', 'Data', 'Horário', 'Período', 'FDS/Fer.', 'Valor KM', 'OS / Controle', 'Origem → Destino', 'Endereço destino', 'Veículo', 'KM', 'Qtde', 'Chamado', 'Valor', ''].map((h, i) => (
@@ -384,7 +384,7 @@ export default function ServicosPage() {
                       <td style={{ padding: '8px 12px' }}>{s.veiculo || '—'}</td>
                       <td style={{ padding: '8px 12px', whiteSpace: 'nowrap' }}>{s.km_faturado ?? s.distancia_km ?? '—'}</td>
                       <td style={{ padding: '8px 12px' }}>{s.quantidade ?? '—'}</td>
-                      <td style={{ padding: '8px 12px', maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={s.chamados || ''}>{s.chamados || '—'}</td>
+                      <td style={{ padding: '8px 12px', whiteSpace: 'nowrap' }} title={s.chamados || ''}>{s.chamados || '—'}</td>
                       <td style={{ padding: '8px 12px', whiteSpace: 'nowrap', fontWeight: 600 }}>{brl(s.valor_total)}</td>
                       <td style={{ padding: '8px 12px', whiteSpace: 'nowrap' }}>
                         <button onClick={() => setEditando(s)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, marginRight: 6 }} title="Editar">✏️</button>

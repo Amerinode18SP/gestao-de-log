@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
 import { AMERINODE_LOGO } from '@/lib/logo'
 import { parsePlanilhaServicos, ServicoRow } from '@/lib/servicos/importPlanilha'
+import ServicosDashboard from './Dashboard'
 
 const EMPRESA_ID = process.env.NEXT_PUBLIC_EMPRESA_ID || '22c8f1e1-3aa7-4794-a76b-fc1d4041b0ca'
 
@@ -44,6 +45,7 @@ export default function ServicosPage() {
   const inputRef = useRef<HTMLInputElement>(null)
 
   const [menuAberto, setMenuAberto] = useState(false)
+  const [aba, setAba] = useState<'lista' | 'painel'>('lista')
   const [servicos, setServicos] = useState<Servico[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -263,10 +265,24 @@ export default function ServicosPage() {
             <h1 style={{ fontSize: '17px', fontWeight: 600, color: '#1A1916', margin: '0 0 2px' }}>Serviços — Frete, Coleta e Motoboy</h1>
             <p style={{ fontSize: '12px', color: '#888780', margin: 0 }}>Importe as planilhas de fechamento/conferência ou cadastre manualmente</p>
           </div>
-          <button onClick={() => setEditando({ tipo: 'Motoboy' })}
-            style={{ background: '#185FA5', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 16px', fontSize: 13, fontWeight: 500, cursor: 'pointer' }}>
-            + Novo serviço
-          </button>
+          {aba === 'lista' && (
+            <button onClick={() => setEditando({ tipo: 'Motoboy' })}
+              style={{ background: '#185FA5', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 16px', fontSize: 13, fontWeight: 500, cursor: 'pointer' }}>
+              + Novo serviço
+            </button>
+          )}
+        </div>
+
+        {/* SUB-ABAS: Lista / Painel */}
+        <div style={{ display: 'flex', gap: 4, marginBottom: 16, borderBottom: '1px solid #E2E0D8' }}>
+          {([['lista', '📋 Lista'], ['painel', '📊 Painel']] as const).map(([k, lbl]) => (
+            <button key={k} onClick={() => setAba(k)}
+              style={{ padding: '8px 16px', fontSize: 13, fontWeight: aba === k ? 600 : 400, cursor: 'pointer',
+                background: 'none', border: 'none', color: aba === k ? '#185FA5' : '#888',
+                borderBottom: `2px solid ${aba === k ? '#185FA5' : 'transparent'}`, marginBottom: -1 }}>
+              {lbl}
+            </button>
+          ))}
         </div>
 
         {msg && (
@@ -277,6 +293,9 @@ export default function ServicosPage() {
           </div>
         )}
 
+        {aba === 'painel' && <ServicosDashboard />}
+
+        {aba === 'lista' && (<>
         {/* IMPORTAÇÃO */}
         <div style={{ background: '#fff', border: '0.5px solid #E2E0D8', borderRadius: 12, padding: 16, marginBottom: 18 }}>
           <div style={{ fontSize: 13, fontWeight: 600, color: '#1A1916', marginBottom: 10 }}>📥 Importar planilha (.xlsx)</div>
@@ -400,6 +419,7 @@ export default function ServicosPage() {
             </table>
           </div>
         </div>
+        </>)}
       </main>
 
       {/* MODAL EDIÇÃO / CADASTRO */}

@@ -233,6 +233,13 @@ export default function CtePage() {
               </p>
               <div className="flex gap-2">
                 <button
+                  onClick={() => setPage(1)}
+                  disabled={page === 1}
+                  className="px-3 py-1.5 text-xs font-medium border border-gray-200 rounded-lg disabled:opacity-40 hover:bg-gray-50 transition-colors"
+                >
+                  ⏮ Primeira
+                </button>
+                <button
                   onClick={() => setPage(p => Math.max(1, p - 1))}
                   disabled={page === 1}
                   className="px-3 py-1.5 text-xs font-medium border border-gray-200 rounded-lg disabled:opacity-40 hover:bg-gray-50 transition-colors"
@@ -245,6 +252,13 @@ export default function CtePage() {
                   className="px-3 py-1.5 text-xs font-medium border border-gray-200 rounded-lg disabled:opacity-40 hover:bg-gray-50 transition-colors"
                 >
                   Próxima →
+                </button>
+                <button
+                  onClick={() => setPage(totalPages)}
+                  disabled={page === totalPages}
+                  className="px-3 py-1.5 text-xs font-medium border border-gray-200 rounded-lg disabled:opacity-40 hover:bg-gray-50 transition-colors"
+                >
+                  Última ⏭
                 </button>
               </div>
             </div>

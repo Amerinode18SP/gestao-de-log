@@ -291,7 +291,7 @@ td{padding:4px 7px;border-bottom:1px solid #f0eee8}
   const cardStyle = { background:'#fff', border:'1px solid #E8E6E0', borderRadius:12, padding:'1rem', opacity: loading ? 0.6 : 1, transition:'opacity .2s' } as const
 
   return (
-    <div style={{minHeight:'100vh', background:'#F0EEE8', fontFamily:"'DM Sans', system-ui, sans-serif", color:'#1A1916'}}>
+    <div style={{minHeight:'100vh', background:'#FAFAF8', fontFamily:'var(--font-sans)', color:'#1A1916'}}>
 
       {/* Header */}
       <header style={{background:'#1A1916', padding:'0 32px', height:'56px', display:'flex', alignItems:'center', justifyContent:'space-between', position:'sticky', top:0, zIndex:100}}>
@@ -353,6 +353,10 @@ td{padding:4px 7px;border-bottom:1px solid #f0eee8}
 
       {/* Conteúdo */}
       <main style={{padding:'1.5rem 2rem', maxWidth:1400, margin:'0 auto'}}>
+        <div style={{ marginBottom: 16 }}>
+          <h1 style={{ fontSize: '17px', fontWeight: 600, color: '#1A1916', margin: '0 0 2px' }}>Mapeamento</h1>
+          <p style={{ fontSize: '12px', color: '#888780', margin: 0 }}>Distribuição de CT-e por estado, modal e centro de custo</p>
+        </div>
 
         {/* Filtros */}
         <div style={{display:'grid', gridTemplateColumns:'repeat(5,1fr)', gap:8, marginBottom:'1.25rem'}}>

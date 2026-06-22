@@ -123,11 +123,14 @@ export default function ServicosPage() {
       const res = await fetch('/api/servicos', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ empresa_id: EMPRESA_ID, registros }),
+        body: JSON.stringify({ empresa_id: EMPRESA_ID, registros, dedup: true }),
       })
       const json = await res.json()
       if (!res.ok) throw new Error(json.error || 'Falha na importação')
-      setMsg({ tipo: 'ok', texto: `${json.inseridos} serviço(s) importado(s) como ${tipoImport}.` })
+      const dup = json.duplicados
+        ? ` ${json.duplicados} duplicado(s) ignorado(s).`
+        : ''
+      setMsg({ tipo: 'ok', texto: `${json.inseridos} serviço(s) importado(s) como ${tipoImport}.${dup}` })
       setPreview(null)
       if (inputRef.current) inputRef.current.value = ''
       carregar()

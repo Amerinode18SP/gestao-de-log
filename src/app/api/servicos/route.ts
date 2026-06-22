@@ -5,6 +5,7 @@
 // ============================================================
 import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseAdmin } from '@/lib/supabase/client'
+import { chavesDuplicidade, filtrarDuplicados } from '@/lib/servicos/dedup'
 
 export const maxDuration = 60
 
@@ -45,22 +46,46 @@ export async function POST(req: NextRequest) {
     const body = await req.json()
     const empresa_id: string = body.empresa_id
     const registros: any[] = Array.isArray(body.registros) ? body.registros : []
+    const dedup: boolean = body.dedup === true
     if (!empresa_id) return NextResponse.json({ error: 'empresa_id obrigatorio' }, { status: 400 })
     if (registros.length === 0) return NextResponse.json({ error: 'nenhum registro' }, { status: 400 })
 
     const supabase = createSupabaseAdmin()
-    const limpos = registros.map(r => sanitizar(r, empresa_id))
+    let limpos = registros.map(r => sanitizar(r, empresa_id))
+    let duplicados = 0
+
+    // Trava anti-duplicado (só no import): descarta linhas que repetem,
+    // em >=3 de 4 campos (fornecedor, data, chamado, valor), um registro
+    // já existente ou outro do mesmo lote. Ver src/lib/servicos/dedup.ts.
+    if (dedup) {
+      const existentes = new Set<string>()
+      const PAGE = 1000
+      for (let from = 0; ; from += PAGE) {
+        const { data, error } = await supabase
+          .from('servicos')
+          .select('fornecedor,data_servico,chamados,valor_total,hora_saida,os_controle')
+          .eq('empresa_id', empresa_id)
+          .range(from, from + PAGE - 1)
+        if (error || !data || data.length === 0) break
+        for (const row of data) for (const k of chavesDuplicidade(row)) existentes.add(k)
+        if (data.length < PAGE) break
+      }
+      const r = filtrarDuplicados(limpos, existentes)
+      limpos = r.aceitos
+      duplicados = r.duplicados
+    }
+
     let inseridos = 0
     const LOTE = 200
     for (let i = 0; i < limpos.length; i += LOTE) {
       const lote = limpos.slice(i, i + LOTE)
       const { error } = await supabase.from('servicos').insert(lote)
       if (error) {
-        return NextResponse.json({ error: error.message, inseridos }, { status: 500 })
+        return NextResponse.json({ error: error.message, inseridos, duplicados }, { status: 500 })
       }
       inseridos += lote.length
     }
-    return NextResponse.json({ inseridos })
+    return NextResponse.json({ inseridos, duplicados })
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 })
   }

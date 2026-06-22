@@ -329,8 +329,8 @@ export default function ServicosDashboard() {
             ))}
           </div>
         }>
-        <ResponsiveContainer width="100%" height={300}>
-          <ComposedChart data={serie} margin={{ top: 22, right: 8, left: 8, bottom: 4 }}>
+        <ResponsiveContainer width="100%" height={350}>
+          <ComposedChart data={serie} margin={{ top: 34, right: 12, left: 8, bottom: 4 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#EFEDE7" vertical={false} />
             <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#888' }} />
             <YAxis yAxisId="esq" tick={{ fontSize: 11, fill: '#888' }} tickFormatter={brlCompacto} width={70} />
@@ -338,11 +338,11 @@ export default function ServicosDashboard() {
             <Tooltip formatter={(v: any, n: any) => n === 'Gastos' ? brl(Number(v)) : Number(v).toLocaleString('pt-BR')}
               contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #E2E0D8' }} />
             <Legend wrapperStyle={{ fontSize: 12 }} />
-            <Bar yAxisId="esq" dataKey="valor" name="Gastos" fill="#185FA5" radius={[4, 4, 0, 0]} maxBarSize={48}>
-              <LabelList dataKey="valor" position="top" formatter={(v: any) => brlCompacto(Number(v))} fill="#185FA5" fontSize={10} />
+            <Bar yAxisId="esq" dataKey="valor" name="Gastos" fill="#185FA5" radius={[4, 4, 0, 0]} maxBarSize={40}>
+              <LabelList dataKey="valor" position="top" offset={6} formatter={(v: any) => brlCompacto(Number(v))} fill="#185FA5" fontSize={9} />
             </Bar>
             <Line yAxisId="dir" dataKey="chamados" name="Chamados" stroke="#C77D0A" strokeWidth={2} dot={{ r: 3 }}>
-              <LabelList dataKey="chamados" position="top" formatter={(v: any) => Number(v).toLocaleString('pt-BR')} fill="#C77D0A" fontSize={10} />
+              <LabelList dataKey="chamados" position="top" offset={16} formatter={(v: any) => Number(v).toLocaleString('pt-BR')} fill="#C77D0A" fontSize={9} />
             </Line>
           </ComposedChart>
         </ResponsiveContainer>
@@ -379,17 +379,20 @@ export default function ServicosDashboard() {
 
         <Card titulo="Gastos por período">
           {porPeriodo.length === 0 ? <Aviso texto="Sem período informado nos serviços filtrados." /> : (
-            <ResponsiveContainer width="100%" height={240}>
-              <BarChart data={porPeriodo} margin={{ top: 20, right: 8, left: 8, bottom: 4 }}>
+            <ResponsiveContainer width="100%" height={260}>
+              <BarChart data={porPeriodo} margin={{ top: 24, right: 12, left: 8, bottom: 4 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#EFEDE7" vertical={false} />
                 <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#555' }} />
-                <YAxis tick={{ fontSize: 11, fill: '#888' }} tickFormatter={brlCompacto} width={70} />
+                <YAxis yAxisId="esq" tick={{ fontSize: 11, fill: '#888' }} tickFormatter={brlCompacto} width={70} />
+                <YAxis yAxisId="dir" orientation="right" tick={{ fontSize: 11, fill: '#888' }} width={40} />
                 <Tooltip formatter={(v: any, n: any) => n === 'Gastos' ? brl(Number(v)) : Number(v).toLocaleString('pt-BR')}
                   contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #E2E0D8' }} />
                 <Legend wrapperStyle={{ fontSize: 12 }} />
-                <Bar dataKey="valor" name="Gastos" radius={[4, 4, 0, 0]} maxBarSize={70}>
-                  {porPeriodo.map(p => <Cell key={p.label} fill={p.label === 'Noturno' ? '#3B5BA5' : '#E8A317'} />)}
-                  <LabelList dataKey="valor" position="top" formatter={(v: any) => brl(Number(v))} fill="#555" fontSize={11} />
+                <Bar yAxisId="esq" dataKey="valor" name="Gastos" fill="#185FA5" radius={[4, 4, 0, 0]} maxBarSize={48}>
+                  <LabelList dataKey="valor" position="top" formatter={(v: any) => brlCompacto(Number(v))} fill="#185FA5" fontSize={10} />
+                </Bar>
+                <Bar yAxisId="dir" dataKey="chamados" name="Chamados" fill="#C77D0A" radius={[4, 4, 0, 0]} maxBarSize={48}>
+                  <LabelList dataKey="chamados" position="top" formatter={(v: any) => Number(v).toLocaleString('pt-BR')} fill="#C77D0A" fontSize={10} />
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
@@ -397,17 +400,20 @@ export default function ServicosDashboard() {
         </Card>
 
         <Card titulo="Gastos: dia útil vs FDS/feriado">
-          <ResponsiveContainer width="100%" height={240}>
-            <BarChart data={porFds} margin={{ top: 20, right: 8, left: 8, bottom: 4 }}>
+          <ResponsiveContainer width="100%" height={260}>
+            <BarChart data={porFds} margin={{ top: 24, right: 12, left: 8, bottom: 4 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#EFEDE7" vertical={false} />
               <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#555' }} />
-              <YAxis tick={{ fontSize: 11, fill: '#888' }} tickFormatter={brlCompacto} width={70} />
+              <YAxis yAxisId="esq" tick={{ fontSize: 11, fill: '#888' }} tickFormatter={brlCompacto} width={70} />
+              <YAxis yAxisId="dir" orientation="right" tick={{ fontSize: 11, fill: '#888' }} width={40} />
               <Tooltip formatter={(v: any, n: any) => n === 'Gastos' ? brl(Number(v)) : Number(v).toLocaleString('pt-BR')}
                 contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #E2E0D8' }} />
               <Legend wrapperStyle={{ fontSize: 12 }} />
-              <Bar dataKey="valor" name="Gastos" radius={[4, 4, 0, 0]} maxBarSize={70}>
-                {porFds.map(p => <Cell key={p.label} fill={p.label === 'FDS/Feriado' ? '#C62828' : '#3A6B12'} />)}
-                <LabelList dataKey="valor" position="top" formatter={(v: any) => brl(Number(v))} fill="#555" fontSize={11} />
+              <Bar yAxisId="esq" dataKey="valor" name="Gastos" fill="#185FA5" radius={[4, 4, 0, 0]} maxBarSize={48}>
+                <LabelList dataKey="valor" position="top" formatter={(v: any) => brlCompacto(Number(v))} fill="#185FA5" fontSize={10} />
+              </Bar>
+              <Bar yAxisId="dir" dataKey="chamados" name="Chamados" fill="#C77D0A" radius={[4, 4, 0, 0]} maxBarSize={48}>
+                <LabelList dataKey="chamados" position="top" formatter={(v: any) => Number(v).toLocaleString('pt-BR')} fill="#C77D0A" fontSize={10} />
               </Bar>
             </BarChart>
           </ResponsiveContainer>

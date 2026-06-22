@@ -206,7 +206,9 @@ export function parsePlanilhaServicos(buf: ArrayBuffer): ParseResult {
 
   const { aba, rows, det } = escolha
   const hdr = montarHeader(rows, det.headerRow, det.formato)
-  const dataStart = det.formato === 'Conferencia' ? det.headerRow + 2 : det.headerRow + 1
+  // Padrão: Fechamento = 1 linha de cabeçalho; Conferência pode ter 1 ou 2
+  // (recalculado por varredura na própria branch da Conferência).
+  let dataStart = det.formato === 'Conferencia' ? det.headerRow + 2 : det.headerRow + 1
 
   const linhas: ServicoRow[] = []
   let ignoradas = 0
@@ -293,8 +295,8 @@ export function parsePlanilhaServicos(buf: ArrayBuffer): ParseResult {
       pedagios: idx(hdr, ['pedagios']),
       tempoEspera: idx(hdr, ['tempo de espera']),
       valorEspera: idx(hdr, ['valor espera']),
-      adNot: idx(hdr, ['adicional noturno']),
-      adFds: idx(hdr, ['adicional final de semana']),
+      adNot: idx(hdr, ['adicional noturno', 'valor noturno']),
+      adFds: idx(hdr, ['adicional final de semana', 'valor final de semana']),
       outras: idx(hdr, ['outras cobrancas']),
       faturamento: idx(hdr, ['faturamento']),
       total: idx(hdr, ['total']),
@@ -309,7 +311,17 @@ export function parsePlanilhaServicos(buf: ArrayBuffer): ParseResult {
       tLim: idx(hdr, ['tempo limite']),
       sla: idx(hdr, ['sla']),
       retorno: idx(hdr, ['retorno']),
-      obs: idx(hdr, ['obs']),
+      obs: idx(hdr, ['observacao referente ao servico', 'obs']),
+    }
+
+    // Início real dos dados: 1ª linha com Controle preenchido e Data Saída
+    // válida. Cobre cabeçalho de 1 linha (aba "Base de Dados") e de 2 linhas
+    // (aba "Moto Urgente Dedicado"), sem pular nem incluir linha de cabeçalho.
+    for (let r = det.headerRow + 1; r < Math.min(rows.length, det.headerRow + 6); r++) {
+      const row = rows[r] || []
+      const ctrl = c.controle >= 0 ? str(row[c.controle]) : undefined
+      const dt = c.dataSaida >= 0 ? toDateISO(row[c.dataSaida]) : undefined
+      if (ctrl && dt) { dataStart = r; break }
     }
 
     for (let r = dataStart; r < rows.length; r++) {

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseAdmin } from '@/lib/supabase/client'
+import { buscarTudo } from '@/lib/supabase/paginar'
 
 export const dynamic = 'force-dynamic'
 
@@ -33,10 +34,10 @@ export async function POST(req: NextRequest) {
   const limiteFornecedor = Number(params.limite_fornecedor ?? 0)
   const tolerancia       = Number(params.tolerancia_pc     ?? 0) / 100
 
-  // Busca CTes do mês com filtros corretos
-  const { data: ctesMes } = await supabase
+  // Busca CTes do mês com filtros corretos (paginado: cap de 1000)
+  const ctes = await buscarTudo(() => supabase
     .from('ctes')
-    .select('valor_servico, data_emissao, fornecedor_id, fornecedor:fornecedores(nome)')
+    .select('id, valor_servico, data_emissao, fornecedor_id, fornecedor:fornecedores(nome)')
     .eq('empresa_id', empresa_id)
     .in('status', ['Faturado', 'Recebido', 'Pendente'])
     .not('chave_acesso', 'is', null)
@@ -48,9 +49,7 @@ export async function POST(req: NextRequest) {
     .not('numero_cte', 'ilike', '%credito%')
     .not('numero_cte', 'ilike', '%.%')
     .not('numero_cte', 'ilike', '%/%')
-    .gte('data_emissao', inicioMes.toISOString().split('T')[0])
-
-  const ctes = ctesMes ?? []
+    .gte('data_emissao', inicioMes.toISOString().split('T')[0]))
 
   const gastoMes    = ctes.reduce((a: number, c: any) => a + (c.valor_servico ?? 0), 0)
   const gastoSemana = ctes

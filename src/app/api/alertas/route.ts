@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseAdmin } from '@/lib/supabase/client'
+import { buscarTudo } from '@/lib/supabase/paginar'
 
 export const dynamic = 'force-dynamic'
 
@@ -37,15 +38,18 @@ export async function GET(req: NextRequest) {
     return q
   }
 
-  const [alertasRes, semanalRes, mensalRes, paramsRes] = await Promise.all([
+  const inicioSemanaStr = inicioSemana.toISOString().split('T')[0]
+  const inicioMesStr = inicioMes.toISOString().split('T')[0]
+
+  const [alertasRes, semanal, mensal, paramsRes] = await Promise.all([
     supabase.from('alertas_historico').select('*').eq('empresa_id', empresa_id).order('criado_em', { ascending: false }).limit(50),
-    aplicarFiltros(supabase.from('ctes').select('valor_servico').in('status', ['Faturado', 'Recebido', 'Pendente']), inicioSemana.toISOString().split('T')[0]),
-    aplicarFiltros(supabase.from('ctes').select('valor_servico').in('status', ['Faturado', 'Recebido', 'Pendente']), inicioMes.toISOString().split('T')[0]),
+    buscarTudo(() => aplicarFiltros(supabase.from('ctes').select('id, valor_servico').in('status', ['Faturado', 'Recebido', 'Pendente']), inicioSemanaStr)),
+    buscarTudo(() => aplicarFiltros(supabase.from('ctes').select('id, valor_servico').in('status', ['Faturado', 'Recebido', 'Pendente']), inicioMesStr)),
     supabase.from('parametros_alerta').select('limite_semanal').eq('empresa_id', empresa_id).maybeSingle(),
   ])
 
-  const gasto_semana = (semanalRes.data ?? []).reduce((a: number, r: any) => a + (r.valor_servico ?? 0), 0)
-  const gasto_mes    = (mensalRes.data  ?? []).reduce((a: number, r: any) => a + (r.valor_servico ?? 0), 0)
+  const gasto_semana = semanal.reduce((a: number, r: any) => a + (r.valor_servico ?? 0), 0)
+  const gasto_mes    = mensal.reduce((a: number, r: any) => a + (r.valor_servico ?? 0), 0)
   const limite_semana = paramsRes.data?.limite_semanal ?? 0
 
   return NextResponse.json({

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseAdmin } from '@/lib/supabase/client'
+import { buscarTudo } from '@/lib/supabase/paginar'
 
 export const dynamic = 'force-dynamic'
 
@@ -33,26 +34,25 @@ export async function GET(req: NextRequest) {
 
   const supabase = createSupabaseAdmin()
 
-  let query = supabase
-    .from('ctes')
-    .select(`
-      numero_cte, data_emissao, status,
-      valor_servico, modal, peso_real,
-      uf_origem, uf_destino,
-      destinatario_nome, remetente_nome,
-      centro_custo_nome,
-      fornecedor:fornecedores(nome)
-    `)
-    .eq('empresa_id', empresa_id)
-    .order('data_emissao', { ascending: false })
-
-  if (dataInicio) query = query.gte('data_emissao', dataInicio)
-  if (dataFim)    query = query.lte('data_emissao', dataFim)
-
-  const { data, error } = await query.limit(100000)
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-
-  const ctes = data ?? []
+  // Paginado: o cap de 1000 do Supabase ignora o .limit(100000) e truncava
+  // o export quando havia mais de 1000 CT-e no período.
+  const ctes = await buscarTudo(() => {
+    let query = supabase
+      .from('ctes')
+      .select(`
+        id, numero_cte, data_emissao, status,
+        valor_servico, modal, peso_real,
+        uf_origem, uf_destino,
+        destinatario_nome, remetente_nome,
+        centro_custo_nome,
+        fornecedor:fornecedores(nome)
+      `)
+      .eq('empresa_id', empresa_id)
+      .order('data_emissao', { ascending: false })
+    if (dataInicio) query = query.gte('data_emissao', dataInicio)
+    if (dataFim)    query = query.lte('data_emissao', dataFim)
+    return query
+  })
 
   // Gerar XML do Excel (SpreadsheetML)
   const rows = ctes.map((c: any) => {

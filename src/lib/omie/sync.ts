@@ -64,10 +64,24 @@ export async function syncCtes(
     // FIX: buscar também o fornecedor_id já salvo no banco
     // para não sobrescrever com vazio quando CTe for paga
     // -------------------------------------------------------
-    const { data: existentes } = await supabase
-      .from('ctes')
-      .select('omie_id, id, status, fornecedor_id, chave_acesso, uf_origem, uf_destino, destinatario_nome, peso_real, modal')
-      .eq('empresa_id', empresaId)
+    // Pagina de 1000 em 1000: o Supabase corta em 1000 linhas por padrao,
+    // e sem isso os CTes mais recentes (ex.: 2026) ficavam de fora do mapa
+    // de preservacao — o upsert entao apagava destinatario/UF vindos do XML.
+    const existentes: any[] = []
+    {
+      const PAGE = 1000
+      for (let from = 0; ; from += PAGE) {
+        const { data, error } = await supabase
+          .from('ctes')
+          .select('omie_id, id, status, fornecedor_id, chave_acesso, uf_origem, uf_destino, destinatario_nome, peso_real, modal')
+          .eq('empresa_id', empresaId)
+          .order('id', { ascending: true })
+          .range(from, from + PAGE - 1)
+        if (error || !data || data.length === 0) break
+        existentes.push(...data)
+        if (data.length < PAGE) break
+      }
+    }
 
     const existentesMap = new Map(existentes?.map(c => [c.omie_id, c]) ?? [])
 

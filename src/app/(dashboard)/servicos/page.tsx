@@ -236,7 +236,7 @@ export default function ServicosPage() {
   useEffect(() => { setPagina(0) }, [busca, colF])
 
   const TABS = [
-    { label: 'CT-e', href: '/dashboard' },
+    { label: 'CT-e', href: '/ct-e' },
     { label: 'Mapeamento', href: '/mapeamento' },
     { label: 'Serviços', href: '/servicos' },
     { label: 'Relatórios', href: '/relatorios' },

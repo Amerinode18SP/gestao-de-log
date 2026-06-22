@@ -92,7 +92,7 @@ export default function RedefinirSenhaPage() {
     }
 
     setSucesso(true)
-    setTimeout(() => router.push('/dashboard'), 2500)
+    setTimeout(() => router.push('/ct-e'), 2500)
   }
 
   const inputStyle: React.CSSProperties = {

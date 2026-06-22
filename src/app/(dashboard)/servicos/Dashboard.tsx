@@ -11,6 +11,7 @@ import {
   ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid,
   Tooltip, Legend, PieChart, Pie, Cell, BarChart, LabelList,
 } from 'recharts'
+import * as XLSX from 'xlsx'
 
 const EMPRESA_ID = process.env.NEXT_PUBLIC_EMPRESA_ID || '22c8f1e1-3aa7-4794-a76b-fc1d4041b0ca'
 
@@ -26,6 +27,14 @@ interface ServicoDash {
   fds_feriado?: boolean
   valor_total?: number
   quantidade?: number
+  os_controle?: string
+  chamados?: string
+  cliente?: string
+  veiculo?: string
+  km_faturado?: number
+  origem_cidade?: string
+  destino_cidade?: string
+  destino_descricao?: string
 }
 
 const TIPO_COLOR: Record<string, string> = { Frete: '#185FA5', Coleta: '#3A6B12', Motoboy: '#C77D0A' }
@@ -187,16 +196,87 @@ export default function ServicosDashboard() {
     return [acc.util, acc.fds]
   }, [filtrados])
 
+  // resumo textual dos filtros (cabeçalho do PDF e do Excel)
+  const resumoFiltros = [
+    `Fornecedor: ${fFornecedor}`,
+    `Ano: ${fAno}`,
+    `Mês: ${fMes === 'Todos' ? 'Todos' : MESES_FULL[parseInt(fMes, 10) - 1]}`,
+    `Período: ${fPeriodo}`,
+    `Tipo: ${fTipo}`,
+  ].join('  ·  ')
+
+  function carimbo() {
+    const d = new Date()
+    const p = (n: number) => String(n).padStart(2, '0')
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}_${p(d.getHours())}${p(d.getMinutes())}`
+  }
+
+  function exportarExcel() {
+    const wb = XLSX.utils.book_new()
+
+    const resumo = [
+      ['Painel de Serviços'],
+      ['Gerado em', new Date().toLocaleString('pt-BR')],
+      ['Filtros', resumoFiltros],
+      [],
+      ['Indicador', 'Valor'],
+      ['Valor total', kpi.valor],
+      ['Chamados', kpi.chamados],
+      ['Serviços (linhas)', kpi.servicos],
+      ['Custo médio por chamado', kpi.ticket],
+    ]
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(resumo), 'Resumo')
+
+    const aba = (nome: string, linhas: any[]) =>
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(linhas), nome)
+
+    aba('Evolucao', serie.map(s => ({ Período: s.label, Gastos: s.valor, Chamados: s.chamados })))
+    aba('Por Fornecedor', porFornecedor.map(x => ({ Fornecedor: x.label, Gastos: x.valor, Chamados: x.chamados })))
+    aba('Por Tipo', porTipo.map(x => ({ Tipo: x.label, Gastos: x.valor, Chamados: x.chamados })))
+    aba('Por Periodo', porPeriodo.map(x => ({ Período: x.label, Gastos: x.valor, Chamados: x.chamados })))
+    aba('Dia util x FDS', porFds.map(x => ({ Categoria: x.label, Gastos: x.valor, Chamados: x.chamados })))
+    aba('Detalhado', filtrados.map(s => ({
+      Tipo: s.tipo, Fornecedor: s.fornecedor ?? '', Data: s.data_servico ?? '', Horário: s.hora_saida ?? '',
+      Período: s.periodo ?? '', 'FDS/Feriado': s.fds_feriado ? 'Sim' : 'Não', 'OS/Controle': s.os_controle ?? '',
+      Chamado: s.chamados ?? '', Cliente: s.cliente ?? '', Veículo: s.veiculo ?? '',
+      'Origem': s.origem_cidade ?? '', 'Destino': s.destino_cidade ?? s.destino_descricao ?? '',
+      KM: s.km_faturado ?? '', Qtde: s.quantidade ?? '', Valor: s.valor_total ?? 0,
+    })))
+
+    XLSX.writeFile(wb, `painel-servicos-${carimbo()}.xlsx`)
+  }
+
   if (loading) return <Aviso texto="Carregando painel…" />
   if (erro) return <Aviso texto={'Erro ao carregar: ' + erro} cor="#791F1F" />
   if (dados.length === 0) return <Aviso texto="Sem serviços para analisar. Importe uma planilha na aba Lista." />
 
   const sel: React.CSSProperties = { padding: '6px 10px', borderRadius: 8, border: '1px solid #D4D2CA', fontSize: 12, background: '#fff' }
 
+  const btn: React.CSSProperties = { padding: '6px 12px', borderRadius: 8, border: '1px solid #D4D2CA', fontSize: 12, background: '#fff', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6 }
+
   return (
-    <div>
-      {/* FILTROS */}
-      <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 14, flexWrap: 'wrap' }}>
+    <div className="painel-print-area">
+      <style>{`
+        .print-only { display: none; }
+        @media print {
+          @page { size: A4 landscape; margin: 10mm; }
+          body * { visibility: hidden; }
+          .painel-print-area, .painel-print-area * { visibility: visible; }
+          .painel-print-area { position: absolute; left: 0; top: 0; width: 100%; }
+          .no-print { display: none !important; }
+          .print-only { display: block; }
+        }
+      `}</style>
+
+      {/* Cabeçalho que só aparece na impressão/PDF */}
+      <div className="print-only" style={{ marginBottom: 12 }}>
+        <div style={{ fontSize: 18, fontWeight: 700, color: '#1A1916' }}>Painel de Serviços — Amerinode</div>
+        <div style={{ fontSize: 12, color: '#555', marginTop: 2 }}>{resumoFiltros}</div>
+        <div style={{ fontSize: 11, color: '#888', marginTop: 2 }}>Gerado em {new Date().toLocaleString('pt-BR')}</div>
+      </div>
+
+      {/* FILTROS + AÇÕES */}
+      <div className="no-print" style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 14, flexWrap: 'wrap' }}>
         <select value={fFornecedor} onChange={e => setFFornecedor(e.target.value)} style={sel}>
           <option value="Todos">Todos os fornecedores</option>
           {fornecedores.map(f => <option key={f} value={f}>{f}</option>)}
@@ -220,6 +300,10 @@ export default function ServicosDashboard() {
           <option value="Coleta">Coleta</option>
           <option value="Motoboy">Motoboy</option>
         </select>
+        <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
+          <button onClick={exportarExcel} style={{ ...btn, borderColor: '#3A6B12', color: '#3A6B12' }}>⬇️ Excel (.xlsx)</button>
+          <button onClick={() => window.print()} style={{ ...btn, borderColor: '#185FA5', color: '#185FA5' }}>🖨️ Imprimir / PDF</button>
+        </div>
       </div>
 
       {/* KPIs */}

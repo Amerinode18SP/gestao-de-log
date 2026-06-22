@@ -8,7 +8,7 @@
 // ============================================================
 import { useEffect, useMemo, useState } from 'react'
 import {
-  ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid,
+  ResponsiveContainer, LineChart, Bar, Line, XAxis, YAxis, CartesianGrid,
   Tooltip, Legend, PieChart, Pie, Cell, BarChart, LabelList,
 } from 'recharts'
 import * as XLSX from 'xlsx'
@@ -120,9 +120,13 @@ export default function ServicosDashboard() {
     return { valor, chamados, servicos, ticket: chamados ? valor / chamados : 0 }
   }, [filtrados])
 
-  // série temporal por granularidade
+  // série temporal por granularidade (com quebras por período e por FDS)
   const serie = useMemo(() => {
-    const mapa = new Map<string, { ordem: string; label: string; valor: number; chamados: number }>()
+    type Bucket = {
+      ordem: string; label: string; valor: number; chamados: number
+      Diurno: number; Noturno: number; 'Dia útil': number; 'FDS/Feriado': number
+    }
+    const mapa = new Map<string, Bucket>()
     for (const s of filtrados) {
       if (!s.data_servico) continue
       let ordem: string, label: string
@@ -138,10 +142,18 @@ export default function ServicosDashboard() {
         ordem = `${s.data_servico.slice(0, 7)}-S${sem}`
         label = `S${sem} ${MESES[mi] ?? '?'}/${s.data_servico.slice(2, 4)}`
       }
-      const cur = mapa.get(ordem) ?? { ordem, label, valor: 0, chamados: 0 }
-      cur.valor += s.valor_total ?? 0
+      let cur = mapa.get(ordem)
+      if (!cur) {
+        cur = { ordem, label, valor: 0, chamados: 0, Diurno: 0, Noturno: 0, 'Dia útil': 0, 'FDS/Feriado': 0 }
+        mapa.set(ordem, cur)
+      }
+      const v = s.valor_total ?? 0
+      cur.valor += v
       cur.chamados += qtdeChamados(s)
-      mapa.set(ordem, cur)
+      if (s.periodo === 'Diurno') cur.Diurno += v
+      else if (s.periodo === 'Noturno') cur.Noturno += v
+      if (s.fds_feriado) cur['FDS/Feriado'] += v
+      else cur['Dia útil'] += v
     }
     return Array.from(mapa.values()).sort((a, b) => a.ordem.localeCompare(b.ordem))
   }, [filtrados, gran])
@@ -230,7 +242,10 @@ export default function ServicosDashboard() {
     const aba = (nome: string, linhas: any[]) =>
       XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(linhas), nome)
 
-    aba('Evolucao', serie.map(s => ({ Período: s.label, Gastos: s.valor, Chamados: s.chamados })))
+    aba('Evolucao', serie.map(s => ({
+      Período: s.label, Gastos: s.valor, Chamados: s.chamados,
+      Diurno: s.Diurno, Noturno: s.Noturno, 'Dia útil': s['Dia útil'], 'FDS/Feriado': s['FDS/Feriado'],
+    })))
     aba('Por Fornecedor', porFornecedor.map(x => ({ Fornecedor: x.label, Gastos: x.valor, Chamados: x.chamados })))
     aba('Por Tipo', porTipo.map(x => ({ Tipo: x.label, Gastos: x.valor, Chamados: x.chamados })))
     aba('Por Periodo', porPeriodo.map(x => ({ Período: x.label, Gastos: x.valor, Chamados: x.chamados })))
@@ -329,8 +344,8 @@ export default function ServicosDashboard() {
             ))}
           </div>
         }>
-        <ResponsiveContainer width="100%" height={350}>
-          <ComposedChart data={serie} margin={{ top: 34, right: 12, left: 8, bottom: 4 }}>
+        <ResponsiveContainer width="100%" height={340}>
+          <BarChart data={serie} margin={{ top: 28, right: 12, left: 8, bottom: 4 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#EFEDE7" vertical={false} />
             <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#888' }} />
             <YAxis yAxisId="esq" tick={{ fontSize: 11, fill: '#888' }} tickFormatter={brlCompacto} width={70} />
@@ -338,15 +353,46 @@ export default function ServicosDashboard() {
             <Tooltip formatter={(v: any, n: any) => n === 'Gastos' ? brl(Number(v)) : Number(v).toLocaleString('pt-BR')}
               contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #E2E0D8' }} />
             <Legend wrapperStyle={{ fontSize: 12 }} />
-            <Bar yAxisId="esq" dataKey="valor" name="Gastos" fill="#185FA5" radius={[4, 4, 0, 0]} maxBarSize={40}>
-              <LabelList dataKey="valor" position="top" offset={6} formatter={(v: any) => brlCompacto(Number(v))} fill="#185FA5" fontSize={9} />
+            <Bar yAxisId="esq" dataKey="valor" name="Gastos" fill="#185FA5" radius={[4, 4, 0, 0]} maxBarSize={34}>
+              <LabelList dataKey="valor" position="top" formatter={(v: any) => brlCompacto(Number(v))} fill="#185FA5" fontSize={9} />
             </Bar>
-            <Line yAxisId="dir" dataKey="chamados" name="Chamados" stroke="#C77D0A" strokeWidth={2} dot={{ r: 3 }}>
-              <LabelList dataKey="chamados" position="top" offset={16} formatter={(v: any) => Number(v).toLocaleString('pt-BR')} fill="#C77D0A" fontSize={9} />
-            </Line>
-          </ComposedChart>
+            <Bar yAxisId="dir" dataKey="chamados" name="Chamados" fill="#C77D0A" radius={[4, 4, 0, 0]} maxBarSize={34}>
+              <LabelList dataKey="chamados" position="top" formatter={(v: any) => Number(v).toLocaleString('pt-BR')} fill="#C77D0A" fontSize={9} />
+            </Bar>
+          </BarChart>
         </ResponsiveContainer>
       </Card>
+
+      {/* EVOLUÇÕES DE GASTOS POR CATEGORIA (seguem a granularidade acima) */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginTop: 16 }}>
+        <Card titulo="Evolução de gastos por período">
+          <ResponsiveContainer width="100%" height={280}>
+            <LineChart data={serie} margin={{ top: 12, right: 16, left: 8, bottom: 4 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#EFEDE7" vertical={false} />
+              <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#888' }} />
+              <YAxis tick={{ fontSize: 11, fill: '#888' }} tickFormatter={brlCompacto} width={70} />
+              <Tooltip formatter={(v: any) => brl(Number(v))} contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #E2E0D8' }} />
+              <Legend wrapperStyle={{ fontSize: 12 }} />
+              <Line dataKey="Diurno" name="Diurno" stroke="#E8A317" strokeWidth={2} dot={{ r: 3 }} />
+              <Line dataKey="Noturno" name="Noturno" stroke="#3B5BA5" strokeWidth={2} dot={{ r: 3 }} />
+            </LineChart>
+          </ResponsiveContainer>
+        </Card>
+
+        <Card titulo="Evolução de gastos: dia útil vs FDS/feriado">
+          <ResponsiveContainer width="100%" height={280}>
+            <LineChart data={serie} margin={{ top: 12, right: 16, left: 8, bottom: 4 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#EFEDE7" vertical={false} />
+              <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#888' }} />
+              <YAxis tick={{ fontSize: 11, fill: '#888' }} tickFormatter={brlCompacto} width={70} />
+              <Tooltip formatter={(v: any) => brl(Number(v))} contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #E2E0D8' }} />
+              <Legend wrapperStyle={{ fontSize: 12 }} />
+              <Line dataKey="Dia útil" name="Dia útil" stroke="#3A6B12" strokeWidth={2} dot={{ r: 3 }} />
+              <Line dataKey="FDS/Feriado" name="FDS/Feriado" stroke="#C62828" strokeWidth={2} dot={{ r: 3 }} />
+            </LineChart>
+          </ResponsiveContainer>
+        </Card>
+      </div>
 
       {/* GRID 2 COLUNAS */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginTop: 16 }}>

@@ -26,16 +26,34 @@ export async function GET(req: NextRequest) {
   const empresa_id = searchParams.get('empresa_id')
   const tipo = searchParams.get('tipo')
   const mes = searchParams.get('mes')
+  const all = searchParams.get('all') === '1' // traz TODOS (paginado), sem cap de 2000
   if (!empresa_id) return NextResponse.json({ error: 'empresa_id obrigatorio' }, { status: 400 })
 
   const supabase = createSupabaseAdmin()
-  let q = supabase.from('servicos').select('*').eq('empresa_id', empresa_id)
-  if (tipo && tipo !== 'Todos') q = q.eq('tipo', tipo)
-  if (mes) q = q.eq('mes_referencia', mes)
-  const { data, error } = await q
-    .order('data_servico', { ascending: false, nullsFirst: false })
-    .limit(2000)
+  const query = () => {
+    let q = supabase.from('servicos').select('*').eq('empresa_id', empresa_id)
+    if (tipo && tipo !== 'Todos') q = q.eq('tipo', tipo)
+    if (mes) q = q.eq('mes_referencia', mes)
+    return q.order('data_servico', { ascending: false, nullsFirst: false })
+  }
 
+  // all=1: pagina de 1000 em 1000 até acabar (usado pelo Painel, que
+  // precisa do conjunto completo para os gráficos/export — o cap de 2000
+  // cortava os meses mais antigos).
+  if (all) {
+    const PAGE = 1000
+    const todos: any[] = []
+    for (let from = 0; ; from += PAGE) {
+      const { data, error } = await query().range(from, from + PAGE - 1)
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+      if (!data || data.length === 0) break
+      todos.push(...data)
+      if (data.length < PAGE) break
+    }
+    return NextResponse.json({ servicos: todos })
+  }
+
+  const { data, error } = await query().limit(2000)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ servicos: data ?? [] })
 }

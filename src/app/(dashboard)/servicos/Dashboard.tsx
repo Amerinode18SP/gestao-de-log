@@ -79,7 +79,7 @@ export default function ServicosDashboard() {
     ;(async () => {
       setLoading(true)
       try {
-        const res = await fetch('/api/servicos?empresa_id=' + EMPRESA_ID)
+        const res = await fetch('/api/servicos?all=1&empresa_id=' + EMPRESA_ID)
         const json = await res.json()
         if (!res.ok) throw new Error(json.error || 'Falha ao carregar')
         if (vivo) setDados((json.servicos as ServicoDash[]) ?? [])

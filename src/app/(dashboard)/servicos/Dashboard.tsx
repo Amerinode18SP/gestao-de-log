@@ -9,7 +9,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
   ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid,
-  Tooltip, Legend, PieChart, Pie, Cell, BarChart,
+  Tooltip, Legend, PieChart, Pie, Cell, BarChart, LabelList,
 } from 'recharts'
 
 const EMPRESA_ID = process.env.NEXT_PUBLIC_EMPRESA_ID || '22c8f1e1-3aa7-4794-a76b-fc1d4041b0ca'
@@ -41,17 +41,13 @@ function brlCompacto(v: number) {
 // quantidade de chamados de um registro (campo quantidade; ao menos 1)
 const qtdeChamados = (s: ServicoDash) => (s.quantidade != null && s.quantidade > 0 ? s.quantidade : 1)
 
-// Semana ISO (ano + número da semana) de uma data ISO
-function semanaISO(iso: string): { ano: number; semana: number } {
-  const d = new Date(iso + 'T00:00:00')
-  const alvo = new Date(d.valueOf())
-  const diaNr = (d.getDay() + 6) % 7 // segunda=0 … domingo=6
-  alvo.setDate(alvo.getDate() - diaNr + 3) // quinta da semana
-  const primeiraQuinta = alvo.valueOf()
-  alvo.setMonth(0, 1)
-  if (alvo.getDay() !== 4) alvo.setMonth(0, 1 + ((4 - alvo.getDay()) + 7) % 7)
-  const semana = 1 + Math.round((primeiraQuinta - alvo.valueOf()) / 604800000)
-  return { ano: alvo.getFullYear(), semana }
+// Semana do mês (1 a 4) pela data ISO. Dias 1–7 = 1, 8–14 = 2,
+// 15–21 = 3, e do 22 em diante = 4. Assim os dias finais do mês
+// (29–31) caem na semana 4 (a última semana do próprio mês), e cada
+// semana fica sempre dentro de um único mês.
+function semanaDoMes(iso: string): number {
+  const dia = parseInt(iso.slice(8, 10), 10)
+  return Math.min(4, Math.max(1, Math.ceil(dia / 7)))
 }
 
 type Granularidade = 'ano' | 'mes' | 'semana'
@@ -128,9 +124,10 @@ export default function ServicosDashboard() {
         const mi = parseInt(s.data_servico.slice(5, 7), 10) - 1
         label = `${MESES[mi] ?? '?'}/${s.data_servico.slice(2, 4)}`
       } else {
-        const { ano, semana } = semanaISO(s.data_servico)
-        ordem = `${ano}-${String(semana).padStart(2, '0')}`
-        label = `S${semana}/${String(ano).slice(2)}`
+        const mi = parseInt(s.data_servico.slice(5, 7), 10) - 1
+        const sem = semanaDoMes(s.data_servico)
+        ordem = `${s.data_servico.slice(0, 7)}-S${sem}`
+        label = `S${sem} ${MESES[mi] ?? '?'}/${s.data_servico.slice(2, 4)}`
       }
       const cur = mapa.get(ordem) ?? { ordem, label, valor: 0, chamados: 0 }
       cur.valor += s.valor_total ?? 0
@@ -249,7 +246,7 @@ export default function ServicosDashboard() {
           </div>
         }>
         <ResponsiveContainer width="100%" height={300}>
-          <ComposedChart data={serie} margin={{ top: 8, right: 8, left: 8, bottom: 4 }}>
+          <ComposedChart data={serie} margin={{ top: 22, right: 8, left: 8, bottom: 4 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#EFEDE7" vertical={false} />
             <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#888' }} />
             <YAxis yAxisId="esq" tick={{ fontSize: 11, fill: '#888' }} tickFormatter={brlCompacto} width={70} />
@@ -257,8 +254,12 @@ export default function ServicosDashboard() {
             <Tooltip formatter={(v: any, n: any) => n === 'Gastos' ? brl(Number(v)) : Number(v).toLocaleString('pt-BR')}
               contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #E2E0D8' }} />
             <Legend wrapperStyle={{ fontSize: 12 }} />
-            <Bar yAxisId="esq" dataKey="valor" name="Gastos" fill="#185FA5" radius={[4, 4, 0, 0]} maxBarSize={48} />
-            <Line yAxisId="dir" dataKey="chamados" name="Chamados" stroke="#C77D0A" strokeWidth={2} dot={{ r: 3 }} />
+            <Bar yAxisId="esq" dataKey="valor" name="Gastos" fill="#185FA5" radius={[4, 4, 0, 0]} maxBarSize={48}>
+              <LabelList dataKey="valor" position="top" formatter={(v: any) => brlCompacto(Number(v))} fill="#185FA5" fontSize={10} />
+            </Bar>
+            <Line yAxisId="dir" dataKey="chamados" name="Chamados" stroke="#C77D0A" strokeWidth={2} dot={{ r: 3 }}>
+              <LabelList dataKey="chamados" position="top" formatter={(v: any) => Number(v).toLocaleString('pt-BR')} fill="#C77D0A" fontSize={10} />
+            </Line>
           </ComposedChart>
         </ResponsiveContainer>
       </Card>
@@ -273,7 +274,9 @@ export default function ServicosDashboard() {
               <YAxis type="category" dataKey="label" tick={{ fontSize: 11, fill: '#555' }} width={130} />
               <Tooltip formatter={(v: any, n: any) => n === 'Gastos' ? brl(Number(v)) : Number(v).toLocaleString('pt-BR')}
                 contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #E2E0D8' }} />
-              <Bar dataKey="valor" name="Gastos" fill="#185FA5" radius={[0, 4, 4, 0]} maxBarSize={26} />
+              <Bar dataKey="valor" name="Gastos" fill="#185FA5" radius={[0, 4, 4, 0]} maxBarSize={26}>
+                <LabelList dataKey="valor" position="right" formatter={(v: any) => brlCompacto(Number(v))} fill="#555" fontSize={10} />
+              </Bar>
             </BarChart>
           </ResponsiveContainer>
         </Card>
@@ -293,7 +296,7 @@ export default function ServicosDashboard() {
         <Card titulo="Gastos por período">
           {porPeriodo.length === 0 ? <Aviso texto="Sem período informado nos serviços filtrados." /> : (
             <ResponsiveContainer width="100%" height={240}>
-              <BarChart data={porPeriodo} margin={{ top: 4, right: 8, left: 8, bottom: 4 }}>
+              <BarChart data={porPeriodo} margin={{ top: 20, right: 8, left: 8, bottom: 4 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#EFEDE7" vertical={false} />
                 <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#555' }} />
                 <YAxis tick={{ fontSize: 11, fill: '#888' }} tickFormatter={brlCompacto} width={70} />
@@ -302,6 +305,7 @@ export default function ServicosDashboard() {
                 <Legend wrapperStyle={{ fontSize: 12 }} />
                 <Bar dataKey="valor" name="Gastos" radius={[4, 4, 0, 0]} maxBarSize={70}>
                   {porPeriodo.map(p => <Cell key={p.label} fill={p.label === 'Noturno' ? '#3B5BA5' : '#E8A317'} />)}
+                  <LabelList dataKey="valor" position="top" formatter={(v: any) => brl(Number(v))} fill="#555" fontSize={11} />
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
@@ -310,7 +314,7 @@ export default function ServicosDashboard() {
 
         <Card titulo="Gastos: dia útil vs FDS/feriado">
           <ResponsiveContainer width="100%" height={240}>
-            <BarChart data={porFds} margin={{ top: 4, right: 8, left: 8, bottom: 4 }}>
+            <BarChart data={porFds} margin={{ top: 20, right: 8, left: 8, bottom: 4 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#EFEDE7" vertical={false} />
               <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#555' }} />
               <YAxis tick={{ fontSize: 11, fill: '#888' }} tickFormatter={brlCompacto} width={70} />
@@ -319,6 +323,7 @@ export default function ServicosDashboard() {
               <Legend wrapperStyle={{ fontSize: 12 }} />
               <Bar dataKey="valor" name="Gastos" radius={[4, 4, 0, 0]} maxBarSize={70}>
                 {porFds.map(p => <Cell key={p.label} fill={p.label === 'FDS/Feriado' ? '#C62828' : '#3A6B12'} />)}
+                <LabelList dataKey="valor" position="top" formatter={(v: any) => brl(Number(v))} fill="#555" fontSize={11} />
               </Bar>
             </BarChart>
           </ResponsiveContainer>

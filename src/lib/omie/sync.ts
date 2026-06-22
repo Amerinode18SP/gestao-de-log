@@ -14,6 +14,22 @@ function createSupabaseAdmin() {
   )
 }
 
+// Busca TODAS as linhas paginando de 1000 em 1000 (o Supabase corta em
+// 1000 por padrão). `build` deve devolver um query builder já com select
+// e filtros; aqui só adicionamos order + range. Use em somatórios pra não
+// subcontar quando houver mais de 1000 registros.
+async function buscarTudo(build: () => any): Promise<any[]> {
+  const PAGE = 1000
+  const out: any[] = []
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await build().order('id', { ascending: true }).range(from, from + PAGE - 1)
+    if (error || !data || data.length === 0) break
+    out.push(...data)
+    if (data.length < PAGE) break
+  }
+  return out
+}
+
 // ============================================================
 // Sincronizar CT-e em lotes de páginas (evita timeout Vercel)
 // paginaInicio e paginaFim permitem retomar de onde parou
@@ -313,12 +329,12 @@ async function verificarAlertas(empresaId: string, supabase: any) {
   const inicioSemana = new Date(agora)
   inicioSemana.setDate(agora.getDate() - agora.getDay())
 
-  const { data: semanalData } = await supabase
+  const semanalData = await buscarTudo(() => supabase
     .from('ctes')
-    .select('valor_servico')
+    .select('id, valor_servico')
     .eq('empresa_id', empresaId)
     .in('status', ['Faturado', 'Recebido'])
-    .gte('data_emissao', inicioSemana.toISOString().split('T')[0])
+    .gte('data_emissao', inicioSemana.toISOString().split('T')[0]))
 
   const gastoSemanal = (semanalData ?? []).reduce(
     (acc: number, r: any) => acc + (r.valor_servico ?? 0), 0
@@ -337,12 +353,12 @@ async function verificarAlertas(empresaId: string, supabase: any) {
   }
 
   const inicioMes = new Date(agora.getFullYear(), agora.getMonth(), 1)
-  const { data: fornecedorData } = await supabase
+  const fornecedorData = await buscarTudo(() => supabase
     .from('ctes')
-    .select('fornecedor_id, valor_servico')
+    .select('id, fornecedor_id, valor_servico')
     .eq('empresa_id', empresaId)
     .in('status', ['Faturado', 'Recebido'])
-    .gte('data_emissao', inicioMes.toISOString().split('T')[0])
+    .gte('data_emissao', inicioMes.toISOString().split('T')[0]))
 
   const porFornecedor = new Map<string, number>()
   ;(fornecedorData ?? []).forEach((r: any) => {

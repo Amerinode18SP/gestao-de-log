@@ -50,9 +50,16 @@ export default function ServicosPage() {
   const [loading, setLoading] = useState(true)
 
   // filtros
-  const [fTipo, setFTipo] = useState<'Todos' | Tipo>('Todos')
-  const [fMes, setFMes] = useState('')
   const [busca, setBusca] = useState('')
+  const [colF, setColF] = useState({
+    tipo: 'Todos', fornecedor: 'Todos', mes: 'Todos', periodo: 'Todos',
+    fds: 'Todos', veiculo: 'Todos', os: '', chamado: '',
+  })
+  const setCol = (campo: keyof typeof colF, v: string) => setColF(f => ({ ...f, [campo]: v }))
+
+  // paginação
+  const PAGE_SIZE = 500
+  const [pagina, setPagina] = useState(0)
 
   // importação
   const [tipoImport, setTipoImport] = useState<Tipo>('Motoboy')
@@ -67,10 +74,8 @@ export default function ServicosPage() {
   const carregar = useCallback(async () => {
     setLoading(true)
     try {
-      const p = new URLSearchParams({ empresa_id: EMPRESA_ID })
-      if (fTipo !== 'Todos') p.set('tipo', fTipo)
-      if (fMes) p.set('mes', fMes)
-      const res = await fetch('/api/servicos?' + p.toString())
+      // all=1 traz TODOS os registros (paginado no servidor), sem o cap de 2000
+      const res = await fetch('/api/servicos?all=1&empresa_id=' + EMPRESA_ID)
       const json = await res.json()
       if (!res.ok) throw new Error(json.error || 'Falha ao carregar')
       setServicos((json.servicos as Servico[]) ?? [])
@@ -78,7 +83,7 @@ export default function ServicosPage() {
       setMsg({ tipo: 'erro', texto: 'Erro ao carregar: ' + (e?.message || e) })
     }
     setLoading(false)
-  }, [fTipo, fMes])
+  }, [])
 
   useEffect(() => { carregar() }, [carregar])
 
@@ -194,18 +199,41 @@ export default function ServicosPage() {
     }
   }
 
-  // -------- filtro de texto (client-side) --------
+  // -------- filtros (client-side): busca global + filtros por coluna --------
   const filtrados = servicos.filter(s => {
-    if (!busca.trim()) return true
-    const t = busca.toLowerCase()
-    return [s.os_controle, s.base, s.cliente, s.solicitante, s.fornecedor, s.destino_descricao, s.destino_cidade, s.chamados]
-      .some(v => (v ?? '').toLowerCase().includes(t))
+    if (colF.tipo !== 'Todos' && s.tipo !== colF.tipo) return false
+    if (colF.fornecedor !== 'Todos' && (s.fornecedor || '') !== colF.fornecedor) return false
+    if (colF.mes !== 'Todos' && (s.mes_referencia || '') !== colF.mes) return false
+    if (colF.periodo !== 'Todos' && (s.periodo || '') !== colF.periodo) return false
+    if (colF.fds !== 'Todos' && (s.fds_feriado ? 'Sim' : 'Não') !== colF.fds) return false
+    if (colF.veiculo !== 'Todos' && (s.veiculo || '') !== colF.veiculo) return false
+    if (colF.os && !(s.os_controle || '').toLowerCase().includes(colF.os.toLowerCase())) return false
+    if (colF.chamado && !(s.chamados || '').toLowerCase().includes(colF.chamado.toLowerCase())) return false
+    if (busca.trim()) {
+      const t = busca.toLowerCase()
+      const ok = [s.os_controle, s.base, s.cliente, s.solicitante, s.fornecedor, s.destino_descricao, s.destino_cidade, s.chamados]
+        .some(v => (v ?? '').toLowerCase().includes(t))
+      if (!ok) return false
+    }
+    return true
   })
+  // totais sobre TODO o conjunto filtrado (não só a página atual)
   const totalValor = filtrados.reduce((a, s) => a + (s.valor_total ?? 0), 0)
   const totalQtde = filtrados.reduce((a, s) => a + (s.quantidade ?? 0), 0)
 
-  // meses disponíveis para o filtro
+  // opções dos selects do cabeçalho
   const meses = Array.from(new Set(servicos.map(s => s.mes_referencia).filter(Boolean))).sort().reverse() as string[]
+  const fornecedores = Array.from(new Set(servicos.map(s => s.fornecedor).filter(Boolean))).sort() as string[]
+  const veiculos = Array.from(new Set(servicos.map(s => s.veiculo).filter(Boolean))).sort() as string[]
+  const periodos = Array.from(new Set(servicos.map(s => s.periodo).filter(Boolean))).sort() as string[]
+
+  // paginação (500/página) sobre o conjunto filtrado
+  const totalPaginas = Math.max(1, Math.ceil(filtrados.length / PAGE_SIZE))
+  const pAtual = Math.min(pagina, totalPaginas - 1)
+  const inicioIdx = pAtual * PAGE_SIZE
+  const pageRows = filtrados.slice(inicioIdx, inicioIdx + PAGE_SIZE)
+  // volta para a 1ª página sempre que os filtros mudam
+  useEffect(() => { setPagina(0) }, [busca, colF])
 
   const TABS = [
     { label: 'CT-e', href: '/dashboard' },
@@ -349,22 +377,21 @@ export default function ServicosPage() {
           )}
         </div>
 
-        {/* FILTROS */}
+        {/* BUSCA + TOTAIS + PAGINAÇÃO */}
         <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 12, flexWrap: 'wrap' }}>
-          <select value={fTipo} onChange={e => setFTipo(e.target.value as any)}
-            style={{ padding: '6px 10px', borderRadius: 8, border: '1px solid #D4D2CA', fontSize: 12, background: '#fff' }}>
-            <option value="Todos">Todos os tipos</option>
-            {TIPOS.map(t => <option key={t} value={t}>{t}</option>)}
-          </select>
-          <select value={fMes} onChange={e => setFMes(e.target.value)}
-            style={{ padding: '6px 10px', borderRadius: 8, border: '1px solid #D4D2CA', fontSize: 12, background: '#fff' }}>
-            <option value="">Todos os meses</option>
-            {meses.map(m => <option key={m} value={m}>{m}</option>)}
-          </select>
           <input value={busca} onChange={e => setBusca(e.target.value)} placeholder="Buscar OS, base, cliente, chamado…"
             style={{ padding: '6px 10px', borderRadius: 8, border: '1px solid #D4D2CA', fontSize: 12, flex: 1, minWidth: 200 }} />
           <div style={{ fontSize: 12, color: '#666' }}>
             <strong>{filtrados.length}</strong> serviço(s) · {totalQtde} chamado(s) · <strong>{brl(totalValor)}</strong>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <button disabled={pAtual === 0} onClick={() => setPagina(0)} style={pgBtn(pAtual === 0)}>⏮ Início</button>
+            <button disabled={pAtual === 0} onClick={() => setPagina(p => Math.max(0, p - 1))} style={pgBtn(pAtual === 0)}>◀ Voltar</button>
+            <span style={{ fontSize: 12, color: '#666', minWidth: 150, textAlign: 'center' }}>
+              Pág. {pAtual + 1}/{totalPaginas} · {filtrados.length ? inicioIdx + 1 : 0}–{Math.min(inicioIdx + PAGE_SIZE, filtrados.length)} de {filtrados.length}
+            </span>
+            <button disabled={pAtual >= totalPaginas - 1} onClick={() => setPagina(p => Math.min(totalPaginas - 1, p + 1))} style={pgBtn(pAtual >= totalPaginas - 1)}>Próximo ▶</button>
+            <button disabled={pAtual >= totalPaginas - 1} onClick={() => setPagina(totalPaginas - 1)} style={pgBtn(pAtual >= totalPaginas - 1)}>Fim ⏭</button>
           </div>
         </div>
 
@@ -375,16 +402,35 @@ export default function ServicosPage() {
               <thead>
                 <tr style={{ color: '#666', textAlign: 'left' }}>
                   {['Tipo', 'Fornecedor', 'Data', 'Horário', 'Período', 'FDS/Fer.', 'Valor KM', 'OS / Controle', 'Origem → Destino', 'Endereço destino', 'Veículo', 'KM', 'Qtde', 'Chamado', 'Valor', ''].map((h, i) => (
-                    <th key={i} style={{ padding: '9px 12px', fontWeight: 600, whiteSpace: 'nowrap', borderBottom: '0.5px solid #E2E0D8', background: '#F7F6F2', position: 'sticky', top: 0, zIndex: 2 }}>{h}</th>
+                    <th key={i} style={{ padding: '9px 12px', fontWeight: 600, whiteSpace: 'nowrap', borderBottom: '0.5px solid #E2E0D8', background: '#F7F6F2', position: 'sticky', top: 0, zIndex: 3 }}>{h}</th>
                   ))}
+                </tr>
+                {/* linha de filtros por coluna (estilo Excel) */}
+                <tr>
+                  <th style={thF}><select value={colF.tipo} onChange={e => setCol('tipo', e.target.value)} style={hf}><option value="Todos">Todos</option>{TIPOS.map(t => <option key={t} value={t}>{t}</option>)}</select></th>
+                  <th style={thF}><select value={colF.fornecedor} onChange={e => setCol('fornecedor', e.target.value)} style={hf}><option value="Todos">Todos</option>{fornecedores.map(f => <option key={f} value={f}>{f}</option>)}</select></th>
+                  <th style={thF}><select value={colF.mes} onChange={e => setCol('mes', e.target.value)} style={hf}><option value="Todos">Todos</option>{meses.map(m => <option key={m} value={m}>{m}</option>)}</select></th>
+                  <th style={thF}></th>
+                  <th style={thF}><select value={colF.periodo} onChange={e => setCol('periodo', e.target.value)} style={hf}><option value="Todos">Todos</option>{periodos.map(p => <option key={p} value={p}>{p}</option>)}</select></th>
+                  <th style={thF}><select value={colF.fds} onChange={e => setCol('fds', e.target.value)} style={hf}><option value="Todos">Todos</option><option value="Sim">Sim</option><option value="Não">Não</option></select></th>
+                  <th style={thF}></th>
+                  <th style={thF}><input value={colF.os} onChange={e => setCol('os', e.target.value)} placeholder="filtrar…" style={hf} /></th>
+                  <th style={thF}></th>
+                  <th style={thF}></th>
+                  <th style={thF}><select value={colF.veiculo} onChange={e => setCol('veiculo', e.target.value)} style={hf}><option value="Todos">Todos</option>{veiculos.map(v => <option key={v} value={v}>{v}</option>)}</select></th>
+                  <th style={thF}></th>
+                  <th style={thF}></th>
+                  <th style={thF}><input value={colF.chamado} onChange={e => setCol('chamado', e.target.value)} placeholder="filtrar…" style={hf} /></th>
+                  <th style={thF}></th>
+                  <th style={thF}><button onClick={() => setColF({ tipo: 'Todos', fornecedor: 'Todos', mes: 'Todos', periodo: 'Todos', fds: 'Todos', veiculo: 'Todos', os: '', chamado: '' })} title="Limpar filtros" style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12 }}>✖️</button></th>
                 </tr>
               </thead>
               <tbody>
                 {loading ? (
                   <tr><td colSpan={16} style={{ padding: 24, textAlign: 'center', color: '#999' }}>Carregando…</td></tr>
                 ) : filtrados.length === 0 ? (
-                  <tr><td colSpan={16} style={{ padding: 24, textAlign: 'center', color: '#999' }}>Nenhum serviço. Importe uma planilha ou cadastre um novo.</td></tr>
-                ) : filtrados.map(s => {
+                  <tr><td colSpan={16} style={{ padding: 24, textAlign: 'center', color: '#999' }}>Nenhum serviço encontrado com os filtros atuais.</td></tr>
+                ) : pageRows.map(s => {
                   const tc = TIPO_COLOR[s.tipo] ?? TIPO_COLOR.Motoboy
                   const rota = [s.origem_cidade && `${s.origem_cidade}${s.origem_uf ? '/' + s.origem_uf : ''}`,
                     s.destino_cidade ? `${s.destino_cidade}${s.destino_uf ? '/' + s.destino_uf : ''}` : s.destino_descricao]
@@ -481,6 +527,11 @@ export default function ServicosPage() {
 }
 
 const inp: React.CSSProperties = { width: '100%', padding: '7px 9px', borderRadius: 7, border: '1px solid #D4D2CA', fontSize: 12, marginTop: 3 }
+
+// filtros do cabeçalho da tabela (estilo Excel)
+const thF: React.CSSProperties = { padding: '4px 8px', background: '#F7F6F2', borderBottom: '0.5px solid #E2E0D8', position: 'sticky', top: 33, zIndex: 2 }
+const hf: React.CSSProperties = { width: '100%', padding: '3px 5px', borderRadius: 5, border: '1px solid #D4D2CA', fontSize: 10, background: '#fff' }
+const pgBtn = (d: boolean): React.CSSProperties => ({ padding: '5px 10px', borderRadius: 7, border: '1px solid #D4D2CA', background: '#fff', fontSize: 12, cursor: d ? 'default' : 'pointer', opacity: d ? 0.4 : 1 })
 
 function Campo({ label, children }: { label: string; children: React.ReactNode }) {
   return (

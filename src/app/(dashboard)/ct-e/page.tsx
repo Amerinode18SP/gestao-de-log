@@ -3,6 +3,9 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
+import MapeamentoPage from '../mapeamento/page'
+import RelatoriosPage from '../relatorios/page'
+import AlertasPage from '../alertas/page'
 
 interface SyncStatus {
   running: boolean
@@ -85,6 +88,12 @@ export default function DashboardPage() {
   const [ultimoSync, setUltimoSync] = useState<string | null>(null)
   const [dataInicio, setDataInicio] = useState('')
   const [dataFim, setDataFim] = useState('')
+  // sub-abas internas do CT-e
+  const [sub, setSub] = useState<'cte' | 'mapeamento' | 'relatorios' | 'alertas'>('cte')
+  useEffect(() => {
+    const t = new URLSearchParams(window.location.search).get('tab')
+    if (t === 'mapeamento' || t === 'relatorios' || t === 'alertas') setSub(t)
+  }, [])
 
   const carregarCtes = useCallback(async (p = 1, status = 'Todos', q = '', di = '', df = '') => {
     setCarregando(true)
@@ -296,7 +305,7 @@ export default function DashboardPage() {
           <span style={{ fontSize: '15px', fontWeight: '600', color: '#F0EEE8', letterSpacing: '-0.3px' }}>Gestão de Log</span>
         </div>
         <div style={{ display: 'flex', gap: '4px' }}>
-          {[{ label: 'CT-e', href: '/ct-e' }, { label: 'Mapeamento', href: '/mapeamento' }, { label: 'Serviços', href: '/servicos' }, { label: 'Relatórios', href: '/relatorios' }, { label: 'Alertas', href: '/alertas' }].map(tab => (
+          {[{ label: 'CT-e', href: '/ct-e' }, { label: 'Serviços', href: '/servicos' }].map(tab => (
             <button key={tab.href} onClick={() => router.push(tab.href)}
               style={{ padding: '5px 12px', borderRadius: '6px', fontSize: '12px', border: 'none', cursor: 'pointer', background: tab.href === '/ct-e' ? 'rgba(255,255,255,0.12)' : 'transparent', color: tab.href === '/ct-e' ? '#F0EEE8' : '#888' }}>
               {tab.label}
@@ -304,12 +313,12 @@ export default function DashboardPage() {
           ))}
         </div>
         <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-          {ultimoSync && (
+          {sub === 'cte' && ultimoSync && (
             <span style={{ fontSize: '11px', color: '#888', background: '#2a2a2a', padding: '4px 10px', borderRadius: '6px', whiteSpace: 'nowrap' }}>
               🕐 Último sync: {new Date(ultimoSync).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
             </span>
           )}
-          {isAdmin && (
+          {sub === 'cte' && isAdmin && (
             <>
               <label style={{ background: xmlImport.running ? '#555' : '#1565C0', color: '#fff', border: 'none', borderRadius: '8px', padding: '8px 18px', fontSize: '13px', fontWeight: '600', cursor: xmlImport.running ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap' }}>
                 {xmlImport.running ? '⟳ Importando...' : '📂 Importar XMLs'}
@@ -385,6 +394,21 @@ export default function DashboardPage() {
 
       <main style={{ padding: '28px 32px', maxWidth: '1400px', margin: '0 auto' }}>
 
+        {/* SUB-ABAS internas do CT-e */}
+        <div style={{ display: 'flex', gap: 4, marginBottom: 16, borderBottom: '1px solid #E2E0D8', flexWrap: 'wrap' }}>
+          {([['cte', '📄 CT-e'], ['mapeamento', '🗺️ Mapeamento'], ['relatorios', '📊 Relatórios'], ['alertas', '🔔 Alertas']] as const).map(([k, lbl]) => (
+            <button key={k} onClick={() => setSub(k)}
+              style={{ padding: '8px 16px', fontSize: 13, fontWeight: sub === k ? 600 : 400, cursor: 'pointer', background: 'none', border: 'none', color: sub === k ? '#185FA5' : '#888', borderBottom: `2px solid ${sub === k ? '#185FA5' : 'transparent'}`, marginBottom: -1 }}>
+              {lbl}
+            </button>
+          ))}
+        </div>
+
+        {sub === 'mapeamento' && <MapeamentoPage embedded />}
+        {sub === 'relatorios' && <RelatoriosPage embedded />}
+        {sub === 'alertas' && <AlertasPage embedded />}
+
+        {sub === 'cte' && (<>
         {(sync.running || sync.concluido || sync.erro) && (
           <div style={{ background: sync.erro ? '#FFEBEE' : sync.concluido ? '#E8F5E9' : '#E3F2FD', border: `1px solid ${sync.erro ? '#FFCDD2' : sync.concluido ? '#C8E6C9' : '#BBDEFB'}`, borderRadius: '12px', padding: '16px 20px', marginBottom: '16px' }}>
             {sync.erro ? <p style={{ margin: 0, color: '#C62828', fontSize: '14px' }}>❌ Erro: {sync.erro}</p>
@@ -516,6 +540,7 @@ export default function DashboardPage() {
             </div>
           )}
         </div>
+        </>)}
       </main>
 
       <style>{`

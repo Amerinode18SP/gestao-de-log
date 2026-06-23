@@ -237,10 +237,7 @@ export default function ServicosPage() {
 
   const TABS = [
     { label: 'CT-e', href: '/ct-e' },
-    { label: 'Mapeamento', href: '/mapeamento' },
     { label: 'Serviços', href: '/servicos' },
-    { label: 'Relatórios', href: '/relatorios' },
-    { label: 'Alertas', href: '/alertas' },
   ]
 
   return (

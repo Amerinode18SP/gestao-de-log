@@ -357,14 +357,14 @@ export default function DashboardPage() {
               {isAdmin && (
                 <>
                   <button onClick={() => { setMenuAberto(false); router.push('/usuarios') }}
-                    style={{ width: '100%', padding: '10px 16px', textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer', fontSize: '13px', color: '#1A1916', display: 'flex', alignItems: 'center', gap: '8px' }}
+                    style={{ width: '100%', padding: '6px 12px', textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer', fontSize: '13px', color: '#1A1916', display: 'flex', alignItems: 'center', gap: '8px' }}
                     onMouseOver={e => (e.currentTarget.style.background = '#F8F7F4')}
                     onMouseOut={e => (e.currentTarget.style.background = 'none')}
                   >
                     👥 Gerenciar usuários
                   </button>
                   <button onClick={() => { setMenuAberto(false); router.push('/configuracoes') }}
-                    style={{ width: '100%', padding: '10px 16px', textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer', fontSize: '13px', color: '#1A1916', display: 'flex', alignItems: 'center', gap: '8px' }}
+                    style={{ width: '100%', padding: '6px 12px', textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer', fontSize: '13px', color: '#1A1916', display: 'flex', alignItems: 'center', gap: '8px' }}
                     onMouseOver={e => (e.currentTarget.style.background = '#F8F7F4')}
                     onMouseOut={e => (e.currentTarget.style.background = 'none')}
                   >
@@ -373,14 +373,14 @@ export default function DashboardPage() {
                 </>
               )}
               <button onClick={() => router.push('/alterar-senha')}
-                style={{ width: '100%', padding: '10px 16px', textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer', fontSize: '13px', color: '#1A1916', display: 'flex', alignItems: 'center', gap: '8px' }}
+                style={{ width: '100%', padding: '6px 12px', textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer', fontSize: '13px', color: '#1A1916', display: 'flex', alignItems: 'center', gap: '8px' }}
                 onMouseOver={e => (e.currentTarget.style.background = '#F0EEE8')}
                 onMouseOut={e => (e.currentTarget.style.background = 'none')}
               >
                 🔑 Alterar senha
               </button>
               <button onClick={sair}
-                style={{ width: '100%', padding: '10px 16px', textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer', fontSize: '13px', color: '#C62828', display: 'flex', alignItems: 'center', gap: '8px', borderTop: '1px solid #F0EEE8' }}
+                style={{ width: '100%', padding: '6px 12px', textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer', fontSize: '13px', color: '#C62828', display: 'flex', alignItems: 'center', gap: '8px', borderTop: '1px solid #F0EEE8' }}
                 onMouseOver={e => (e.currentTarget.style.background = '#FFF5F5')}
                 onMouseOut={e => (e.currentTarget.style.background = 'none')}
               >
@@ -392,7 +392,7 @@ export default function DashboardPage() {
         </div>
       </header>
 
-      <main style={{ padding: '28px 32px', maxWidth: '1400px', margin: '0 auto' }}>
+      <main style={{ padding: '16px 24px', maxWidth: '1760px', margin: '0 auto' }}>
 
         {/* SUB-ABAS internas do CT-e */}
         <div style={{ display: 'flex', gap: 4, marginBottom: 16, borderBottom: '1px solid #E2E0D8', flexWrap: 'wrap' }}>
@@ -441,7 +441,7 @@ export default function DashboardPage() {
           </div>
         )}
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '16px', marginBottom: '28px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '10px', marginBottom: '16px' }}>
           {[
             { label: 'Total de CTes', valor: resumo?.total ?? '—', icon: '📦', cor: '#1A1916' },
             { label: 'Valor Total', valor: resumo ? fmt(resumo.valor_total) : '—', icon: '💰', cor: '#2E7D32' },
@@ -449,9 +449,9 @@ export default function DashboardPage() {
             { label: 'A vencer', valor: resumo?.pendente ?? '—', icon: '🟡', cor: '#E65100' },
             { label: 'Canceladas', valor: resumo?.cancelado ?? '—', icon: '🔴', cor: '#C62828' },
           ].map(card => (
-            <div key={card.label} style={{ background: '#fff', borderRadius: '12px', padding: '18px 20px', border: '1px solid #E8E6E0', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
-              <div style={{ fontSize: '20px', marginBottom: '8px' }}>{card.icon}</div>
-              <div style={{ fontSize: '22px', fontWeight: '700', color: card.cor, letterSpacing: '-0.5px' }}>
+            <div key={card.label} style={{ background: '#fff', borderRadius: '12px', padding: '12px 14px', border: '1px solid #E8E6E0', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
+              <div style={{ fontSize: '16px', marginBottom: '4px' }}>{card.icon}</div>
+              <div style={{ fontSize: '19px', fontWeight: '700', color: card.cor, letterSpacing: '-0.5px' }}>
                 {carregando && !resumo ? <span style={{ color: '#ccc' }}>—</span> : card.valor}
               </div>
               <div style={{ fontSize: '12px', color: '#888780', marginTop: '4px' }}>{card.label}</div>
@@ -497,7 +497,7 @@ export default function DashboardPage() {
                 <thead>
                   <tr style={{ background: '#F8F7F4' }}>
                     {['Nº CT-e', 'Transportadora', 'Destinatário', 'Origem → Destino', 'Modal', 'Peso (kg)', 'Centro de Custo', 'Valor', 'Emissão', 'Status'].map(h => (
-                      <th key={h} style={{ padding: '10px 16px', textAlign: 'left', fontWeight: '600', color: '#555', fontSize: '12px', whiteSpace: 'nowrap', position: 'sticky', top: 0, zIndex: 1, background: '#F8F7F4' }}>{h}</th>
+                      <th key={h} style={{ padding: '6px 12px', textAlign: 'left', fontWeight: '600', color: '#555', fontSize: '12px', whiteSpace: 'nowrap', position: 'sticky', top: 0, zIndex: 1, background: '#F8F7F4' }}>{h}</th>
                     ))}
                   </tr>
                 </thead>
@@ -509,16 +509,16 @@ export default function DashboardPage() {
                     const destino = c.uf_destino || '?'
                     return (
                       <tr key={c.id} style={{ borderTop: '1px solid #F0EEE8', background: i % 2 === 0 ? '#fff' : '#FAFAF8' }}>
-                        <td style={{ padding: '10px 16px', fontWeight: '600' }}>{c.numero_cte ?? '—'}</td>
-                        <td style={{ padding: '10px 16px', color: '#444', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{transportadora}</td>
-                        <td style={{ padding: '10px 16px', color: '#444', maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.destinatario_nome || '—'}</td>
-                        <td style={{ padding: '10px 16px', color: '#666', whiteSpace: 'nowrap' }}>{origem} → {destino}</td>
-                        <td style={{ padding: '10px 16px', color: '#666' }}>{c.modal ?? '—'}</td>
-                        <td style={{ padding: '10px 16px', color: '#666', whiteSpace: 'nowrap' }}>{c.peso_real ? c.peso_real.toLocaleString('pt-BR') : '—'}</td>
-                        <td style={{ padding: '10px 16px', color: '#666', maxWidth: '260px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '12px' }}>{c.centro_custo_nome || '—'}</td>
-                        <td style={{ padding: '10px 16px', fontWeight: '600', color: '#2E7D32', whiteSpace: 'nowrap' }}>{c.valor_servico != null ? fmt(c.valor_servico) : '—'}</td>
-                        <td style={{ padding: '10px 16px', color: '#666', whiteSpace: 'nowrap' }}>{c.data_emissao ? new Date(c.data_emissao).toLocaleDateString('pt-BR') : '—'}</td>
-                        <td style={{ padding: '10px 16px' }}>
+                        <td style={{ padding: '6px 12px', fontWeight: '600' }}>{c.numero_cte ?? '—'}</td>
+                        <td style={{ padding: '6px 12px', color: '#444', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{transportadora}</td>
+                        <td style={{ padding: '6px 12px', color: '#444', maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.destinatario_nome || '—'}</td>
+                        <td style={{ padding: '6px 12px', color: '#666', whiteSpace: 'nowrap' }}>{origem} → {destino}</td>
+                        <td style={{ padding: '6px 12px', color: '#666' }}>{c.modal ?? '—'}</td>
+                        <td style={{ padding: '6px 12px', color: '#666', whiteSpace: 'nowrap' }}>{c.peso_real ? c.peso_real.toLocaleString('pt-BR') : '—'}</td>
+                        <td style={{ padding: '6px 12px', color: '#666', maxWidth: '260px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '12px' }}>{c.centro_custo_nome || '—'}</td>
+                        <td style={{ padding: '6px 12px', fontWeight: '600', color: '#2E7D32', whiteSpace: 'nowrap' }}>{c.valor_servico != null ? fmt(c.valor_servico) : '—'}</td>
+                        <td style={{ padding: '6px 12px', color: '#666', whiteSpace: 'nowrap' }}>{c.data_emissao ? new Date(c.data_emissao).toLocaleDateString('pt-BR') : '—'}</td>
+                        <td style={{ padding: '6px 12px' }}>
                           <span style={{ background: st.bg, color: st.color, padding: '3px 10px', borderRadius: '99px', fontSize: '11px', fontWeight: '600', whiteSpace: 'nowrap' }}>{c.status === 'Pendente' ? 'A vencer' : c.status}</span>
                         </td>
                       </tr>

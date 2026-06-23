@@ -360,7 +360,7 @@ td{padding:4px 7px;border-bottom:1px solid #f0eee8}
       )}
 
       {/* Conteúdo */}
-      <main style={{padding:'1.5rem 2rem', maxWidth:1400, margin:'0 auto'}}>
+      <main style={{padding: embedded ? '0' : '1rem 1.5rem', maxWidth: embedded ? '100%' : 1760, margin:'0 auto'}}>
         <div style={{ marginBottom: 16 }}>
           <h1 style={{ fontSize: '17px', fontWeight: 600, color: '#1A1916', margin: '0 0 2px' }}>Mapeamento</h1>
           <p style={{ fontSize: '12px', color: '#888780', margin: 0 }}>Distribuição de CT-e por estado, modal e centro de custo</p>
@@ -368,7 +368,7 @@ td{padding:4px 7px;border-bottom:1px solid #f0eee8}
         {embedded && <div style={{display:'flex', justifyContent:'flex-end', gap:8, marginBottom:16}}>{acoes}</div>}
 
         {/* Filtros */}
-        <div style={{display:'grid', gridTemplateColumns:'repeat(5,1fr)', gap:8, marginBottom:'1.25rem', position:'sticky', top:56, zIndex:20, background:'#FAFAF8', paddingTop:8, paddingBottom:8}}>
+        <div style={{display:'grid', gridTemplateColumns:'repeat(5,1fr)', gap:8, marginBottom:'0.75rem', position:'sticky', top:56, zIndex:20, background:'#FAFAF8', paddingTop:8, paddingBottom:8}}>
           <select value={modal} onChange={e => setModal(e.target.value)} style={selStyle}>
             <option value="all">Todos os modais</option>
             <option value="Rodoviário">Rodoviário</option>
@@ -398,7 +398,7 @@ td{padding:4px 7px;border-bottom:1px solid #f0eee8}
         {error && <div style={{padding:'1rem', background:'#FFEBEE', color:'#C62828', borderRadius:8, marginBottom:'1rem', fontSize:13}}>Erro: {error}</div>}
 
         {/* KPIs */}
-        <div style={{display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:12, marginBottom:'1.25rem'}}>
+        <div style={{display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:12, marginBottom:'0.75rem'}}>
           {[
             {label:'VALOR TOTAL REMESSAS', value: s ? fmt(s.totalValue) : '—', sub: s ? s.totalCtes+' CT-es · '+s.stateCount+' estados' : '—'},
             {label:'TICKET MÉDIO / CT-E', value: s ? fmt(s.ticketMedio) : '—', sub:'por documento'},
@@ -413,7 +413,7 @@ td{padding:4px 7px;border-bottom:1px solid #f0eee8}
         </div>
 
         {/* Mapa + Ranking */}
-        <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', background:'#fff', border:'1px solid #E8E6E0', borderRadius:12, overflow:'hidden', marginBottom:'1.25rem'}}>
+        <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', background:'#fff', border:'1px solid #E8E6E0', borderRadius:12, overflow:'hidden', marginBottom:'0.75rem'}}>
           <div style={{padding:'1rem', borderRight:'1px solid #F0EEE8'}}>
             <div style={{fontSize:12, color:'#888', marginBottom:'.75rem'}}>📍 Gasto por estado de destino</div>
             {loading
@@ -448,7 +448,7 @@ td{padding:4px 7px;border-bottom:1px solid #f0eee8}
         </div>
 
         {/* Gráficos */}
-        <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:'1.25rem'}}>
+        <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:'0.75rem'}}>
           <div style={cardStyle}>
             <div style={{fontSize:12, color:'#888', marginBottom:'.75rem'}}>🚛 Gasto por modal</div>
             <BarChart items={data?.byModal || []} colorMap={MODAL_COLORS} />
@@ -467,7 +467,7 @@ td{padding:4px 7px;border-bottom:1px solid #f0eee8}
               <thead>
                 <tr style={{background:'#F8F7F4'}}>
                   {['#','Estado','UF','CT-es','Modal predom.','Valor total','Ticket médio','Participação'].map((h, i) => (
-                    <th key={h} style={{padding:'8px 16px', textAlign: i >= 3 ? 'right' : 'left', fontSize:11, fontWeight:600, color:'#888', textTransform:'uppercase', borderBottom:'1px solid #F0EEE8', whiteSpace:'nowrap'}}>{h}</th>
+                    <th key={h} style={{padding:'6px 12px', textAlign: i >= 3 ? 'right' : 'left', fontSize:11, fontWeight:600, color:'#888', textTransform:'uppercase', borderBottom:'1px solid #F0EEE8', whiteSpace:'nowrap'}}>{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -482,18 +482,18 @@ td{padding:4px 7px;border-bottom:1px solid #f0eee8}
                         const ticket = d.ctes > 0 ? Math.round(d.value / d.ctes) : 0
                         return (
                           <tr key={d.uf} style={{borderTop:'1px solid #F0EEE8', background: i%2===0?'#fff':'#FAFAF8'}}>
-                            <td style={{padding:'9px 16px'}}>
+                            <td style={{padding:'6px 12px'}}>
                               <span style={{display:'inline-flex', alignItems:'center', justifyContent:'center', width:22, height:22, borderRadius:'50%', background:'#F0EEE8', fontSize:11, fontWeight:600}}>{i+1}</span>
                             </td>
-                            <td style={{padding:'9px 16px'}}>{d.name}</td>
-                            <td style={{padding:'9px 16px', color:'#888'}}>{d.uf}</td>
-                            <td style={{padding:'9px 16px', textAlign:'right'}}>{d.ctes}</td>
-                            <td style={{padding:'9px 16px', textAlign:'right'}}>
+                            <td style={{padding:'6px 12px'}}>{d.name}</td>
+                            <td style={{padding:'6px 12px', color:'#888'}}>{d.uf}</td>
+                            <td style={{padding:'6px 12px', textAlign:'right'}}>{d.ctes}</td>
+                            <td style={{padding:'6px 12px', textAlign:'right'}}>
                               <span style={{display:'inline-block', fontSize:11, padding:'2px 8px', borderRadius:20, background:'#E3F2FD', color:'#1565C0'}}>{d.modal}</span>
                             </td>
-                            <td style={{padding:'9px 16px', textAlign:'right', fontWeight:600}}>{fmt(d.value)}</td>
-                            <td style={{padding:'9px 16px', textAlign:'right'}}>{fmt(ticket)}</td>
-                            <td style={{padding:'9px 16px', textAlign:'right'}}>
+                            <td style={{padding:'6px 12px', textAlign:'right', fontWeight:600}}>{fmt(d.value)}</td>
+                            <td style={{padding:'6px 12px', textAlign:'right'}}>{fmt(ticket)}</td>
+                            <td style={{padding:'6px 12px', textAlign:'right'}}>
                               <div style={{display:'flex', alignItems:'center', gap:6, justifyContent:'flex-end'}}>
                                 <div style={{width:56, height:6, background:'#f3f4f6', borderRadius:3, overflow:'hidden', flexShrink:0}}>
                                   <div style={{width:pct+'%', height:'100%', borderRadius:3, background:'#1a56a0'}} />

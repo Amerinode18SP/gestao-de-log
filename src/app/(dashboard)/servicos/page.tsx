@@ -284,7 +284,7 @@ export default function ServicosPage() {
         </div>
       </header>
 
-      <main style={{ padding: '20px 32px', maxWidth: 1500, margin: '0 auto' }}>
+      <main style={{ padding: '14px 24px', maxWidth: 1760, margin: '0 auto' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
           <div>
             <h1 style={{ fontSize: '17px', fontWeight: 600, color: '#1A1916', margin: '0 0 2px' }}>Serviços — Frete, Coleta e Motoboy</h1>
@@ -399,7 +399,7 @@ export default function ServicosPage() {
               <thead>
                 <tr style={{ color: '#666', textAlign: 'left' }}>
                   {['Tipo', 'Fornecedor', 'Data', 'Horário', 'Período', 'FDS/Fer.', 'Valor KM', 'OS / Controle', 'Origem → Destino', 'Endereço destino', 'Veículo', 'KM', 'Qtde', 'Chamado', 'Valor', ''].map((h, i) => (
-                    <th key={i} style={{ padding: '9px 12px', fontWeight: 600, whiteSpace: 'nowrap', borderBottom: '0.5px solid #E2E0D8', background: '#F7F6F2', position: 'sticky', top: 0, zIndex: 3 }}>{h}</th>
+                    <th key={i} style={{ padding: '6px 10px', fontWeight: 600, whiteSpace: 'nowrap', borderBottom: '0.5px solid #E2E0D8', background: '#F7F6F2', position: 'sticky', top: 0, zIndex: 3 }}>{h}</th>
                   ))}
                 </tr>
                 {/* linha de filtros por coluna (estilo Excel) */}
@@ -434,24 +434,24 @@ export default function ServicosPage() {
                     .filter(Boolean).join(' → ') || s.destino_descricao || '—'
                   return (
                     <tr key={s.id} style={{ borderBottom: '0.5px solid #F0EEE8' }}>
-                      <td style={{ padding: '8px 12px' }}>
+                      <td style={{ padding: '5px 10px' }}>
                         <span style={{ padding: '2px 8px', borderRadius: 100, fontSize: 10, fontWeight: 600, background: tc.bg, color: tc.text }}>{s.tipo}</span>
                       </td>
-                      <td style={{ padding: '8px 12px', maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={s.fornecedor || ''}>{s.fornecedor || '—'}</td>
-                      <td style={{ padding: '8px 12px', whiteSpace: 'nowrap' }}>{dataBR(s.data_servico)}</td>
-                      <td style={{ padding: '8px 12px', whiteSpace: 'nowrap' }}>{s.hora_saida || '—'}</td>
-                      <td style={{ padding: '8px 12px', whiteSpace: 'nowrap' }}>{s.periodo || '—'}</td>
-                      <td style={{ padding: '8px 12px', whiteSpace: 'nowrap' }}>{s.fds_feriado ? 'Sim' : '—'}</td>
-                      <td style={{ padding: '8px 12px', whiteSpace: 'nowrap' }}>{s.valor_km != null ? brl(s.valor_km) : '—'}</td>
-                      <td style={{ padding: '8px 12px', whiteSpace: 'nowrap' }}>{s.os_controle || '—'}</td>
-                      <td style={{ padding: '8px 12px', maxWidth: 240, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={rota}>{rota}</td>
-                      <td style={{ padding: '8px 12px', maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={s.destino_endereco || ''}>{s.destino_endereco || '—'}</td>
-                      <td style={{ padding: '8px 12px' }}>{s.veiculo || '—'}</td>
-                      <td style={{ padding: '8px 12px', whiteSpace: 'nowrap' }}>{s.km_faturado ?? s.distancia_km ?? '—'}</td>
-                      <td style={{ padding: '8px 12px' }}>{s.quantidade ?? '—'}</td>
-                      <td style={{ padding: '8px 12px', whiteSpace: 'nowrap' }} title={s.chamados || ''}>{s.chamados || '—'}</td>
-                      <td style={{ padding: '8px 12px', whiteSpace: 'nowrap', fontWeight: 600 }}>{brl(s.valor_total)}</td>
-                      <td style={{ padding: '8px 12px', whiteSpace: 'nowrap' }}>
+                      <td style={{ padding: '5px 10px', maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={s.fornecedor || ''}>{s.fornecedor || '—'}</td>
+                      <td style={{ padding: '5px 10px', whiteSpace: 'nowrap' }}>{dataBR(s.data_servico)}</td>
+                      <td style={{ padding: '5px 10px', whiteSpace: 'nowrap' }}>{s.hora_saida || '—'}</td>
+                      <td style={{ padding: '5px 10px', whiteSpace: 'nowrap' }}>{s.periodo || '—'}</td>
+                      <td style={{ padding: '5px 10px', whiteSpace: 'nowrap' }}>{s.fds_feriado ? 'Sim' : '—'}</td>
+                      <td style={{ padding: '5px 10px', whiteSpace: 'nowrap' }}>{s.valor_km != null ? brl(s.valor_km) : '—'}</td>
+                      <td style={{ padding: '5px 10px', whiteSpace: 'nowrap' }}>{s.os_controle || '—'}</td>
+                      <td style={{ padding: '5px 10px', maxWidth: 240, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={rota}>{rota}</td>
+                      <td style={{ padding: '5px 10px', maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={s.destino_endereco || ''}>{s.destino_endereco || '—'}</td>
+                      <td style={{ padding: '5px 10px' }}>{s.veiculo || '—'}</td>
+                      <td style={{ padding: '5px 10px', whiteSpace: 'nowrap' }}>{s.km_faturado ?? s.distancia_km ?? '—'}</td>
+                      <td style={{ padding: '5px 10px' }}>{s.quantidade ?? '—'}</td>
+                      <td style={{ padding: '5px 10px', whiteSpace: 'nowrap' }} title={s.chamados || ''}>{s.chamados || '—'}</td>
+                      <td style={{ padding: '5px 10px', whiteSpace: 'nowrap', fontWeight: 600 }}>{brl(s.valor_total)}</td>
+                      <td style={{ padding: '5px 10px', whiteSpace: 'nowrap' }}>
                         <button onClick={() => setEditando(s)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, marginRight: 6 }} title="Editar">✏️</button>
                         <button onClick={() => excluir(s)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13 }} title="Excluir">🗑️</button>
                       </td>

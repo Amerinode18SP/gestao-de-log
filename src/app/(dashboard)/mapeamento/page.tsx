@@ -368,7 +368,7 @@ td{padding:4px 7px;border-bottom:1px solid #f0eee8}
         {embedded && <div style={{display:'flex', justifyContent:'flex-end', gap:8, marginBottom:16}}>{acoes}</div>}
 
         {/* Filtros */}
-        <div style={{display:'grid', gridTemplateColumns:'repeat(5,1fr)', gap:8, marginBottom:'1.25rem'}}>
+        <div style={{display:'grid', gridTemplateColumns:'repeat(5,1fr)', gap:8, marginBottom:'1.25rem', position:'sticky', top:56, zIndex:20, background:'#FAFAF8', paddingTop:8, paddingBottom:8}}>
           <select value={modal} onChange={e => setModal(e.target.value)} style={selStyle}>
             <option value="all">Todos os modais</option>
             <option value="Rodoviário">Rodoviário</option>

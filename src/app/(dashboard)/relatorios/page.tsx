@@ -109,7 +109,7 @@ export default function RelatoriosPage({ embedded = false }: { embedded?: boolea
           <p style={{ fontSize: '12px', color: '#888780', margin: 0 }}>Gastos por mês, transportadora e centro de custo</p>
         </div>
         {embedded && <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>{acoes}</div>}
-        <div style={{ display: 'flex', gap: '12px', marginBottom: '24px', alignItems: 'center', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: '12px', marginBottom: '24px', alignItems: 'center', flexWrap: 'wrap', position: 'sticky', top: 56, zIndex: 20, background: '#FAFAF8', paddingTop: 8, paddingBottom: 8 }}>
           <span style={{ fontSize: '13px', color: '#888780' }}>Período:</span>
           <input type="date" value={dataInicio} onChange={e => setDataInicio(e.target.value)}
             style={{ padding: '7px 10px', borderRadius: '8px', border: '1px solid #D8D6D0', fontSize: '12px', background: '#fff' }} />

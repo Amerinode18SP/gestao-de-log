@@ -527,13 +527,13 @@ export default function DashboardPage() {
             </div>
           )}
           {totalPages > 1 && (
-            <div style={{ padding: '16px 20px', borderTop: '1px solid #F0EEE8', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ padding: '8px 16px', borderTop: '1px solid #F0EEE8', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span style={{ fontSize: '12px', color: '#888780' }}>Página {page} de {totalPages} · {totalCtes.toLocaleString('pt-BR')} registros</span>
-              <div style={{ display: 'flex', gap: '8px' }}>
-                <button onClick={() => carregarCtes(1, filtroStatus, busca, dataInicio, dataFim)} disabled={page === 1} style={{ padding: '6px 14px', borderRadius: '6px', border: '1px solid #D8D6D0', background: page === 1 ? '#f5f5f5' : '#fff', cursor: page === 1 ? 'not-allowed' : 'pointer', fontSize: '13px' }}>⏮ Primeira</button>
-                <button onClick={() => carregarCtes(page - 1, filtroStatus, busca, dataInicio, dataFim)} disabled={page === 1} style={{ padding: '6px 14px', borderRadius: '6px', border: '1px solid #D8D6D0', background: page === 1 ? '#f5f5f5' : '#fff', cursor: page === 1 ? 'not-allowed' : 'pointer', fontSize: '13px' }}>← Anterior</button>
-                <button onClick={() => carregarCtes(page + 1, filtroStatus, busca, dataInicio, dataFim)} disabled={page === totalPages} style={{ padding: '6px 14px', borderRadius: '6px', border: '1px solid #D8D6D0', background: page === totalPages ? '#f5f5f5' : '#fff', cursor: page === totalPages ? 'not-allowed' : 'pointer', fontSize: '13px' }}>Próxima →</button>
-                <button onClick={() => carregarCtes(totalPages, filtroStatus, busca, dataInicio, dataFim)} disabled={page === totalPages} style={{ padding: '6px 14px', borderRadius: '6px', border: '1px solid #D8D6D0', background: page === totalPages ? '#f5f5f5' : '#fff', cursor: page === totalPages ? 'not-allowed' : 'pointer', fontSize: '13px' }}>Última ⏭</button>
+              <div style={{ display: 'flex', gap: '6px' }}>
+                <button onClick={() => carregarCtes(1, filtroStatus, busca, dataInicio, dataFim)} disabled={page === 1} style={{ padding: '4px 10px', borderRadius: '6px', border: '1px solid #D8D6D0', background: page === 1 ? '#f5f5f5' : '#fff', cursor: page === 1 ? 'not-allowed' : 'pointer', fontSize: '12px' }}>⏮ Primeira</button>
+                <button onClick={() => carregarCtes(page - 1, filtroStatus, busca, dataInicio, dataFim)} disabled={page === 1} style={{ padding: '4px 10px', borderRadius: '6px', border: '1px solid #D8D6D0', background: page === 1 ? '#f5f5f5' : '#fff', cursor: page === 1 ? 'not-allowed' : 'pointer', fontSize: '12px' }}>← Anterior</button>
+                <button onClick={() => carregarCtes(page + 1, filtroStatus, busca, dataInicio, dataFim)} disabled={page === totalPages} style={{ padding: '4px 10px', borderRadius: '6px', border: '1px solid #D8D6D0', background: page === totalPages ? '#f5f5f5' : '#fff', cursor: page === totalPages ? 'not-allowed' : 'pointer', fontSize: '12px' }}>Próxima →</button>
+                <button onClick={() => carregarCtes(totalPages, filtroStatus, busca, dataInicio, dataFim)} disabled={page === totalPages} style={{ padding: '4px 10px', borderRadius: '6px', border: '1px solid #D8D6D0', background: page === totalPages ? '#f5f5f5' : '#fff', cursor: page === totalPages ? 'not-allowed' : 'pointer', fontSize: '12px' }}>Última ⏭</button>
               </div>
             </div>
           )}

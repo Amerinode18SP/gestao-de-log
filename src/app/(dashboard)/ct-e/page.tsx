@@ -492,12 +492,12 @@ export default function DashboardPage() {
               {totalCtes === 0 ? 'Nenhuma CT-e. Clique em "Sincronizar CTes" para importar.' : 'Nenhuma CT-e corresponde aos filtros.'}
             </div>
           ) : (
-            <div style={{ overflowX: 'auto' }}>
+            <div style={{ overflowX: 'auto', overflowY: 'auto', maxHeight: 'calc(100vh - 360px)' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
                 <thead>
                   <tr style={{ background: '#F8F7F4' }}>
                     {['Nº CT-e', 'Transportadora', 'Destinatário', 'Origem → Destino', 'Modal', 'Peso (kg)', 'Centro de Custo', 'Valor', 'Emissão', 'Status'].map(h => (
-                      <th key={h} style={{ padding: '10px 16px', textAlign: 'left', fontWeight: '600', color: '#555', fontSize: '12px', whiteSpace: 'nowrap' }}>{h}</th>
+                      <th key={h} style={{ padding: '10px 16px', textAlign: 'left', fontWeight: '600', color: '#555', fontSize: '12px', whiteSpace: 'nowrap', position: 'sticky', top: 0, zIndex: 1, background: '#F8F7F4' }}>{h}</th>
                     ))}
                   </tr>
                 </thead>

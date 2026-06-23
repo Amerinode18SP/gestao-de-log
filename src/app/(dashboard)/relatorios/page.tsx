@@ -104,11 +104,13 @@ export default function RelatoriosPage({ embedded = false }: { embedded?: boolea
       )}
 
       <main style={{ padding: '28px 32px', maxWidth: '1400px', margin: '0 auto' }}>
-        <div style={{ marginBottom: 16 }}>
-          <h1 style={{ fontSize: '17px', fontWeight: 600, color: '#1A1916', margin: '0 0 2px' }}>Relatórios</h1>
-          <p style={{ fontSize: '12px', color: '#888780', margin: 0 }}>Gastos por mês, transportadora e centro de custo</p>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginBottom: 16 }}>
+          <div>
+            <h1 style={{ fontSize: '17px', fontWeight: 600, color: '#1A1916', margin: '0 0 2px' }}>Relatórios</h1>
+            <p style={{ fontSize: '12px', color: '#888780', margin: 0 }}>Gastos por mês, transportadora e centro de custo</p>
+          </div>
+          {embedded && <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>{acoes}</div>}
         </div>
-        {embedded && <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>{acoes}</div>}
         <div style={{ display: 'flex', gap: '12px', marginBottom: '24px', alignItems: 'center', flexWrap: 'wrap', position: 'sticky', top: 56, zIndex: 20, background: '#FAFAF8', paddingTop: 8, paddingBottom: 8 }}>
           <span style={{ fontSize: '13px', color: '#888780' }}>Período:</span>
           <input type="date" value={dataInicio} onChange={e => setDataInicio(e.target.value)}

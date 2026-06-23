@@ -361,11 +361,13 @@ td{padding:4px 7px;border-bottom:1px solid #f0eee8}
 
       {/* Conteúdo */}
       <main style={{padding: embedded ? '0' : '1rem 1.5rem', maxWidth: embedded ? '100%' : 1760, margin:'0 auto'}}>
-        <div style={{ marginBottom: 16 }}>
-          <h1 style={{ fontSize: '17px', fontWeight: 600, color: '#1A1916', margin: '0 0 2px' }}>Mapeamento</h1>
-          <p style={{ fontSize: '12px', color: '#888780', margin: 0 }}>Distribuição de CT-e por estado, modal e centro de custo</p>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginBottom: 16 }}>
+          <div>
+            <h1 style={{ fontSize: '17px', fontWeight: 600, color: '#1A1916', margin: '0 0 2px' }}>Mapeamento</h1>
+            <p style={{ fontSize: '12px', color: '#888780', margin: 0 }}>Distribuição de CT-e por estado, modal e centro de custo</p>
+          </div>
+          {embedded && <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>{acoes}</div>}
         </div>
-        {embedded && <div style={{display:'flex', justifyContent:'flex-end', gap:8, marginBottom:16}}>{acoes}</div>}
 
         {/* Filtros */}
         <div style={{display:'grid', gridTemplateColumns:'repeat(5,1fr)', gap:8, marginBottom:'0.75rem', position:'sticky', top:56, zIndex:20, background:'#FAFAF8', paddingTop:8, paddingBottom:8}}>

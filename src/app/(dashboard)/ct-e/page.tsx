@@ -441,7 +441,7 @@ export default function DashboardPage() {
           </div>
         )}
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '10px', marginBottom: '16px' }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', marginBottom: '16px' }}>
           {[
             { label: 'Total de CTes', valor: resumo?.total ?? '—', icon: '📦', cor: '#1A1916' },
             { label: 'Valor Total', valor: resumo ? fmt(resumo.valor_total) : '—', icon: '💰', cor: '#2E7D32' },
@@ -449,12 +449,14 @@ export default function DashboardPage() {
             { label: 'A vencer', valor: resumo?.pendente ?? '—', icon: '🟡', cor: '#E65100' },
             { label: 'Canceladas', valor: resumo?.cancelado ?? '—', icon: '🔴', cor: '#C62828' },
           ].map(card => (
-            <div key={card.label} style={{ background: '#fff', borderRadius: '12px', padding: '12px 14px', border: '1px solid #E8E6E0', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
-              <div style={{ fontSize: '16px', marginBottom: '4px' }}>{card.icon}</div>
-              <div style={{ fontSize: '19px', fontWeight: '700', color: card.cor, letterSpacing: '-0.5px' }}>
-                {carregando && !resumo ? <span style={{ color: '#ccc' }}>—</span> : card.valor}
+            <div key={card.label} style={{ background: '#fff', borderRadius: '12px', padding: '10px 16px', border: '1px solid #E8E6E0', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '16px' }}>{card.icon}</span>
+                <span style={{ fontSize: '19px', fontWeight: '700', color: card.cor, letterSpacing: '-0.5px', whiteSpace: 'nowrap' }}>
+                  {carregando && !resumo ? <span style={{ color: '#ccc' }}>—</span> : card.valor}
+                </span>
               </div>
-              <div style={{ fontSize: '12px', color: '#888780', marginTop: '4px' }}>{card.label}</div>
+              <div style={{ fontSize: '12px', color: '#888780', marginTop: '2px' }}>{card.label}</div>
             </div>
           ))}
         </div>
@@ -481,10 +483,6 @@ export default function DashboardPage() {
         </div>
 
         <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid #E8E6E0', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
-          <div style={{ padding: '16px 20px', borderBottom: '1px solid #F0EEE8', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: '14px', fontWeight: '600' }}>CT-es</span>
-            <span style={{ fontSize: '12px', color: '#888780' }}>{totalCtes.toLocaleString('pt-BR')} registros no total</span>
-          </div>
           {carregando ? (
             <div style={{ padding: '48px', textAlign: 'center', color: '#888780', fontSize: '14px' }}>Carregando CTes...</div>
           ) : ctes.length === 0 ? (
@@ -530,7 +528,7 @@ export default function DashboardPage() {
           )}
           {totalPages > 1 && (
             <div style={{ padding: '16px 20px', borderTop: '1px solid #F0EEE8', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontSize: '12px', color: '#888780' }}>Página {page} de {totalPages}</span>
+              <span style={{ fontSize: '12px', color: '#888780' }}>Página {page} de {totalPages} · {totalCtes.toLocaleString('pt-BR')} registros</span>
               <div style={{ display: 'flex', gap: '8px' }}>
                 <button onClick={() => carregarCtes(1, filtroStatus, busca, dataInicio, dataFim)} disabled={page === 1} style={{ padding: '6px 14px', borderRadius: '6px', border: '1px solid #D8D6D0', background: page === 1 ? '#f5f5f5' : '#fff', cursor: page === 1 ? 'not-allowed' : 'pointer', fontSize: '13px' }}>⏮ Primeira</button>
                 <button onClick={() => carregarCtes(page - 1, filtroStatus, busca, dataInicio, dataFim)} disabled={page === 1} style={{ padding: '6px 14px', borderRadius: '6px', border: '1px solid #D8D6D0', background: page === 1 ? '#f5f5f5' : '#fff', cursor: page === 1 ? 'not-allowed' : 'pointer', fontSize: '13px' }}>← Anterior</button>
